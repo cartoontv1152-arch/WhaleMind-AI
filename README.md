@@ -43,7 +43,7 @@ Completed in Wave 1:
 - Added `.env.example` and ignored `.env.local` support for production-safe secrets.
 - Added the WhaleMind whale image as the app favicon, Apple icon, OpenGraph preview, and README hero mark.
 - Added local verification steps for type checks, production builds, API smoke tests, and browser inspection.
-- Added a separate `/dashboard` app surface with wallet-based login, live market views, SoDEX intent creation, and readiness checks.
+- Added a separate `/dashboard` app surface with wallet-based login, live market charts, SoDEX intent creation, Mongo-backed signal history, and readiness checks.
 
 Wave 1 remaining before demo day:
 
@@ -92,7 +92,7 @@ SODEX_EIP712_VERIFYING_CONTRACT=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Keep `SODEX_ENABLE_LIVE_EXECUTION=false` while testing. The dashboard marks live execution ready only after the flag, `SODEX_DEFAULT_ACCOUNT_ID`, and `SODEX_EIP712_VERIFYING_CONTRACT` are all configured.
+Keep `SODEX_ENABLE_LIVE_EXECUTION=false` while testing. The dashboard marks live execution ready only after the flag, `SODEX_DEFAULT_ACCOUNT_ID`, and `SODEX_EIP712_VERIFYING_CONTRACT` are all configured. The dashboard does not render fake candles or placeholder market rows; charts come from the current live refresh plus MongoDB history when configured.
 
 ## Local Development
 

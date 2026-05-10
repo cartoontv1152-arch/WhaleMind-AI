@@ -92,6 +92,14 @@ export interface RuntimeConfigStatus {
   sodexLiveExecution: boolean;
 }
 
+export interface DashboardHistoryPoint {
+  generatedAt: string;
+  assets: Array<Pick<MarketAsset, "symbol" | "price" | "change24h" | "volume24h" | "marketCap">>;
+  signals: Array<Pick<AiSignal, "asset" | "action" | "confidence">>;
+  sodex?: Pick<SodexMarket, "symbol" | "lastPrice" | "priceChange24h" | "volume24h" | "bid" | "ask">;
+  chain?: Pick<ChainStatus, "blockNumber">;
+}
+
 export interface DashboardSnapshot {
   generatedAt: string;
   state: Exclude<DataSourceState, "fallback">;
@@ -104,6 +112,7 @@ export interface DashboardSnapshot {
   sodex?: SodexMarket;
   chain?: ChainStatus;
   aiBrief?: string;
+  history: DashboardHistoryPoint[];
   config: RuntimeConfigStatus;
 }
 
