@@ -1,12 +1,8 @@
-
-
 # WhaleMind AI
-
-
 
 demo -[https://youtu.be/lFq0Smz6MMU](https://youtu.be/lFq0Smz6MMU)
 
-url -
+url - [https://whale-mind-ai.vercel.app](https://whale-mind-ai.vercel.app/)
 
 AI-powered on-chain trading intelligence for SoSoValue research, SoDEX execution, and ValueChain wallet confirmation.
 
