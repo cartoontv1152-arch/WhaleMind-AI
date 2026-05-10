@@ -21,9 +21,29 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: 'WhaleMind AI - On-chain Trading Intelligence',
   description: 'AI-powered SoSoValue research, whale signals, and SoDEX order-intent execution on ValueChain.',
   generator: 'WhaleMind AI',
+  icons: {
+    icon: [
+      {
+        url: '/images/whale.png',
+        type: 'image/png',
+      },
+    ],
+    apple: [
+      {
+        url: '/images/whale.png',
+        type: 'image/png',
+      },
+    ],
+  },
+  openGraph: {
+    title: 'WhaleMind AI',
+    description: 'AI-powered SoSoValue research, whale signals, and SoDEX order-intent execution on ValueChain.',
+    images: ['/images/whale.png'],
+  },
 }
 
 export default function RootLayout({

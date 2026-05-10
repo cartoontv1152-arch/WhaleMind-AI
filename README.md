@@ -1,4 +1,16 @@
-# WhaleMind AI
+<p align="center">
+  <img src="./public/images/whale.png" alt="WhaleMind AI whale logo" width="180" />
+</p>
+
+<h1 align="center">WhaleMind AI</h1>
+
+<p align="center">
+  AI-powered on-chain trading intelligence for SoSoValue research, SoDEX execution, and ValueChain wallet confirmation.
+</p>
+
+<p align="center">
+  <strong>Wave 1 complete:</strong> live intelligence reads, guarded SoDEX order intents, wallet-ready ValueChain flow, and a Waves 2-3 product roadmap.
+</p>
 
 AI-powered on-chain trading intelligence for the SoSoValue Buildathon.
 
@@ -29,6 +41,14 @@ Completed in Wave 1:
 - Added optional OpenAI brief generation with deterministic fallback when no API key is present.
 - Added optional MongoDB persistence for signal snapshots when `MONGODB_URI` is present.
 - Added `.env.example` and ignored `.env.local` support for production-safe secrets.
+- Added the WhaleMind whale image as the app favicon, Apple icon, OpenGraph preview, and README hero mark.
+- Added local verification steps for type checks, production builds, API smoke tests, and browser inspection.
+
+Wave 1 remaining before demo day:
+
+- Add final SoDEX account IDs and exchange-specific contract details when the organizer credentials are available.
+- Add a real OpenAI key only if you want dynamic AI text instead of the deterministic analyst brief.
+- Add `MONGODB_URI` only if you want persisted signal history during judging.
 
 ## Buildathon Fit
 
