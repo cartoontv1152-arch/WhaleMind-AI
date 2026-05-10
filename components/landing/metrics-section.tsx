@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { LiveIntelligencePanel } from "@/components/landing/live-intelligence-panel";
 
 const metrics = [
   { 
@@ -239,7 +240,7 @@ export function MetricsSection() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="relative py-32 lg:py-40 overflow-hidden">
+    <section id="live" ref={sectionRef} className="relative py-32 lg:py-40 overflow-hidden">
       <GridBackground />
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
@@ -261,7 +262,7 @@ export function MetricsSection() {
             }`}>
               Real-time
               <br />
-              <span className="text-muted-foreground">agent metrics.</span>
+              <span className="text-muted-foreground">market mind.</span>
             </h2>
           </div>
         </div>
@@ -278,61 +279,22 @@ export function MetricsSection() {
           />
         </div>
 
-        {/* Metrics grid */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Large metric */}
-          <div className={`lg:col-span-1 bg-foreground/[0.02] border border-foreground/10 p-10 lg:p-14 transition-all duration-700 ${
-            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
-          }`}>
-            <div className="text-4xl md:text-5xl lg:text-6xl font-display tracking-tight mb-4 whitespace-nowrap overflow-hidden">
-              <AnimatedNumber end={metrics[0].value} suffix={metrics[0].suffix} prefix={metrics[0].prefix} />
-            </div>
-            <div className="mb-6">
-              <DotGraph color="white" height={36} freq1={0.28} freq2={0.09} freqT={0.5} speed={0.018} baseline={0.35} amplitude={0.55} />
-            </div>
-            <div className="text-lg text-foreground mb-2">{metrics[0].label}</div>
-            <div className="text-sm text-muted-foreground font-mono">{metrics[0].sublabel}</div>
-          </div>
-
-          {/* Metrics */}
-          {metrics.slice(1).map((metric, index) => (
-            <div
-              key={metric.label}
-              className={`bg-foreground/[0.02] border border-foreground/10 p-8 flex flex-col items-start justify-between gap-6 transition-all duration-700 ${
-                isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
-              }`}
-              style={{ transitionDelay: `${(index + 1) * 100}ms` }}
-            >
-              <div className="w-full">
-                <div className="text-sm text-muted-foreground font-mono mb-2">{metric.sublabel}</div>
-                <div className="text-base text-foreground mb-3">{metric.label}</div>
-                <DotGraph
-                  color={index === 0 ? "green" : "white"}
-                  height={24}
-                  freq1={index === 0 ? 0.45 : 0.22}
-                  freq2={index === 0 ? 0.18 : 0.07}
-                  freqT={index === 0 ? 1.1 : 0.4}
-                  speed={index === 0 ? 0.032 : 0.015}
-                  baseline={index === 0 ? 0.4 : 0.25}
-                  amplitude={index === 0 ? 0.45 : 0.6}
-                />
-              </div>
-              <div className="text-3xl md:text-4xl lg:text-5xl font-display tracking-tight w-full">
-                <AnimatedNumber end={metric.value} suffix={metric.suffix} prefix={metric.prefix} />
-              </div>
-            </div>
-          ))}
+        {/* Live terminal grid */}
+        <div className={`transition-all duration-700 ${
+          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
+        }`}>
+          <LiveIntelligencePanel />
         </div>
 
         {/* Bottom ticker */}
         <div className={`mt-16 pt-8 border-t border-foreground/10 flex flex-wrap items-center gap-x-12 gap-y-4 text-sm font-mono text-muted-foreground transition-all duration-1000 delay-500 ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
-          <span>OpenAI GPT-4 Turbo</span>
-          <span>Anthropic Claude 3</span>
-          <span>Mistral Large</span>
-          <span>Llama 3</span>
-          <span className="text-foreground">+12 more models</span>
+          <span>SoSoValue API</span>
+          <span>SoDEX Spot REST</span>
+          <span>ValueChain RPC</span>
+          <span>EIP-712 order intent</span>
+          <span className="text-foreground">Wallet-confirmed execution</span>
         </div>
       </div>
     </section>

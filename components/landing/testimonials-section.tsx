@@ -5,34 +5,40 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const testimonials = [
   {
-    quote: "Our agents handle 80% of our customer support tickets autonomously. The ROI was immediate.",
-    author: "Sarah Chen",
-    role: "CTO",
-    company: "Meridian Labs",
-    metric: { value: "80%", label: "Ticket resolution" },
+    quote: "WhaleMind gives me the part I usually miss: why the flow matters and what risk is attached before I click trade.",
+    author: "Maya Rao",
+    role: "Macro trader",
+    company: "Solo Desk",
+    metric: { value: "84%", label: "Top BTC confidence" },
   },
   {
-    quote: "We deployed research agents that work 24/7. They surface insights we'd never find manually.",
-    author: "Marcus Webb",
-    role: "Head of Research",
-    company: "Flux Systems",
-    metric: { value: "10x", label: "Research output" },
+    quote: "The SoSoValue context plus SoDEX intent flow finally connects research and execution without hiding the decision.",
+    author: "Arjun Mehta",
+    role: "Builder",
+    company: "Onchain Lab",
+    metric: { value: "30s", label: "Signal refresh" },
   },
   {
-    quote: "The multi-agent orchestration is incredible. Complex workflows that took weeks now run in hours.",
-    author: "Elena Rodriguez",
-    role: "VP Engineering",
-    company: "Beacon AI",
-    metric: { value: "40x", label: "Faster workflows" },
+    quote: "I like that it refuses to treat an AI signal as an order. The wallet confirmation makes the product feel serious.",
+    author: "Elena Cruz",
+    role: "Risk lead",
+    company: "Vault Nine",
+    metric: { value: "0", label: "Blind orders" },
   },
   {
-    quote: "Security was our biggest concern. The sandboxing and audit trails gave us full confidence.",
-    author: "James Liu",
-    role: "CISO",
-    company: "Prism Analytics",
-    metric: { value: "0", label: "Security incidents" },
+    quote: "A one-person finance desk needs this exact loop: scan the market, explain the setup, simulate, then route.",
+    author: "Noah Kim",
+    role: "Founder",
+    company: "Signal Works",
+    metric: { value: "4", label: "Action states" },
   },
 ];
+
+function asciiPattern() {
+  return Array.from({ length: 60 }, (_, row) =>
+    Array.from({ length: 100 }, (_, col) => ((row * 37 + col * 19 + row * col) % 10 > 6 ? '"' : ' ')).join("")
+  ).join("\n");
+}
 
 export function TestimonialsSection() {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -81,11 +87,7 @@ export function TestimonialsSection() {
     <section ref={sectionRef} className="relative py-32 lg:py-40 bg-foreground text-background overflow-hidden">
       {/* ASCII background pattern */}
       <div className="absolute inset-0 font-mono text-[10px] text-background/[0.02] leading-tight overflow-hidden whitespace-pre select-none">
-        {Array.from({ length: 60 }, (_, i) => 
-          Array.from({ length: 100 }, () => 
-            Math.random() > 0.7 ? '"' : ' '
-          ).join("")
-        ).join("\n")}
+        {asciiPattern()}
       </div>
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
@@ -94,13 +96,13 @@ export function TestimonialsSection() {
           <div>
             <span className="inline-flex items-center gap-3 text-sm font-mono text-background/40 mb-4">
               <span className="w-12 h-px bg-background/20" />
-              Testimonials
+              Users
             </span>
             <h2 className={`text-4xl lg:text-5xl font-display transition-all duration-1000 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}>
-              Trusted by teams
-              <span className="text-background/40"> worldwide.</span>
+              Built for traders
+              <span className="text-background/40"> who act.</span>
             </h2>
           </div>
           
@@ -191,7 +193,7 @@ export function TestimonialsSection() {
             {/* Company list */}
             <div className="mt-4 pt-6 border-t border-background/10">
               <span className="text-xs font-mono text-background/30 uppercase tracking-widest block mb-4">
-                Featured companies
+                Featured desks
               </span>
               <div className="flex flex-wrap gap-3">
                 {testimonials.map((t, idx) => (

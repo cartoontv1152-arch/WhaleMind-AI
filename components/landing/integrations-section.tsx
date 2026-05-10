@@ -66,18 +66,18 @@ const logos: Record<string, React.ReactNode> = {
 };
 
 const integrations = [
-  { name: "OpenAI", category: "LLM" },
-  { name: "Anthropic", category: "LLM" },
-  { name: "Slack", category: "Comms" },
+  { name: "SoSoValue", category: "Data" },
+  { name: "SoDEX", category: "Trade" },
+  { name: "ValueChain", category: "L1" },
+  { name: "OpenAI", category: "AI" },
+  { name: "ethers.js", category: "Wallet" },
+  { name: "MongoDB", category: "Store" },
+  { name: "Next.js", category: "App" },
+  { name: "Recharts", category: "Charts" },
   { name: "GitHub", category: "Code" },
-  { name: "Jira", category: "PM" },
-  { name: "AWS S3", category: "Storage" },
-  { name: "Google Drive", category: "Docs" },
-  { name: "Salesforce", category: "CRM" },
-  { name: "HubSpot", category: "Marketing" },
-  { name: "Zapier", category: "Auto" },
-  { name: "Snowflake", category: "Data" },
-  { name: "Stripe", category: "Payments" },
+  { name: "AWS S3", category: "Files" },
+  { name: "Zapier", category: "Alerts" },
+  { name: "Stripe", category: "Billing" },
 ];
 
 export function IntegrationsSection() {
@@ -107,7 +107,7 @@ export function IntegrationsSection() {
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
           <span className="w-12 h-px bg-foreground/20" />
-          Integrations
+          Stack
           <span className="w-12 h-px bg-foreground/20" />
         </span>
 
@@ -116,13 +116,13 @@ export function IntegrationsSection() {
         }`}>
           Connect
           <br />
-          <span className="text-muted-foreground">everything.</span>
+          <span className="text-muted-foreground">the loop.</span>
         </h2>
 
         <p className={`mt-8 text-xl text-muted-foreground leading-relaxed max-w-lg mx-auto transition-all duration-1000 delay-100 ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
-          Your agents connect to 100+ tools and services. They read, write, and act autonomously across your entire stack.
+          WhaleMind connects research, chain data, AI reasoning, and SoDEX execution into one trading workflow.
         </p>
       </div>
 
@@ -189,7 +189,9 @@ export function IntegrationsSection() {
               <div className={`w-10 h-10 mb-6 flex items-center justify-center transition-colors ${
                 hoveredIndex === index ? "text-white" : "text-foreground/60"
               }`}>
-                {logos[integration.name]}
+                {logos[integration.name] ?? (
+                  <span className="font-display text-xl">{integration.name.slice(0, 1)}</span>
+                )}
               </div>
 
               <span className="font-medium block">{integration.name}</span>
@@ -210,9 +212,9 @@ export function IntegrationsSection() {
         }`}>
           <div className="flex flex-wrap gap-12">
             {[
-              { value: "100+", label: "Integrations" },
-              { value: "OAuth", label: "Auth built-in" },
-              { value: "Webhooks", label: "Real-time sync" },
+              { value: "4", label: "Core APIs" },
+              { value: "EIP-712", label: "Signing flow" },
+              { value: "30s", label: "Live refresh" },
             ].map((stat) => (
               <div key={stat.label} className="flex items-baseline gap-3">
                 <span className="text-3xl font-display">{stat.value}</span>
@@ -222,7 +224,7 @@ export function IntegrationsSection() {
           </div>
 
           <a href="#" className="group inline-flex items-center gap-2 text-sm font-mono text-muted-foreground hover:text-foreground transition-colors">
-            View all integrations
+            View stack map
             <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
           </a>
         </div>

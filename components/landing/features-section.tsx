@@ -5,27 +5,27 @@ import { useEffect, useRef, useState } from "react";
 const features = [
   {
     number: "01",
-    title: "Autonomous Execution",
-    description: "Deploy AI agents that work independently. They analyze, decide, and execute complex multi-step tasks without human intervention.",
-    stats: { value: "99.7%", label: "task completion" },
+    title: "Whale Intelligence",
+    description: "Track large SoDEX prints, market depth, and smart-money pressure, then turn raw movement into a plain-English signal.",
+    stats: { value: "24/7", label: "flow monitoring" },
   },
   {
     number: "02",
-    title: "Distributed Computing",
-    description: "Offload compute-heavy tasks to our global network. Your agents run on optimized infrastructure across 50+ regions worldwide.",
-    stats: { value: "50+", label: "global regions" },
+    title: "SoSoValue Context",
+    description: "Fuse ETF flows, hot news, sector data, market snapshots, and narrative shifts into one research layer.",
+    stats: { value: "30s", label: "market refresh" },
   },
   {
     number: "03",
-    title: "Multi-Agent Orchestration",
-    description: "Coordinate teams of specialized agents. They communicate, delegate, and collaborate to solve complex problems together.",
-    stats: { value: "1000x", label: "parallel execution" },
+    title: "Signal Engine",
+    description: "Score BUY, SELL, HOLD, and WATCH setups with confidence, risk, and the drivers behind the decision.",
+    stats: { value: "4", label: "action states" },
   },
   {
     number: "04",
-    title: "Secure Sandboxing",
-    description: "Each agent runs in isolated environments. Full audit trails, encrypted execution, and zero data leakage between tasks.",
-    stats: { value: "0", label: "data breaches" },
+    title: "Execution Guardrails",
+    description: "Create SoDEX order intents for wallet signing while keeping live execution disabled until the trader confirms.",
+    stats: { value: "0", label: "blind orders" },
   },
 ];
 
@@ -158,7 +158,7 @@ export function FeaturesSection() {
             <div className="lg:col-span-7">
               <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
                 <span className="w-12 h-px bg-foreground/30" />
-                Capabilities
+                Signals
               </span>
               <h2
                 className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
@@ -167,14 +167,14 @@ export function FeaturesSection() {
               >
                 Intelligent
                 <br />
-                <span className="text-muted-foreground">workers.</span>
+                <span className="text-muted-foreground">trading.</span>
               </h2>
             </div>
             <div className="lg:col-span-5 lg:pb-4">
               <p className={`text-xl text-muted-foreground leading-relaxed transition-all duration-1000 delay-200 ${
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
               }`}>
-                Deploy autonomous AI agents that execute complex tasks across distributed infrastructure. No supervision required.
+                WhaleMind turns fragmented market data into an actionable research-to-execution loop for traders.
               </p>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 
-const words = ["automate", "delegate", "execute", "scale"];
+const words = ["explain", "detect", "execute", "protect"];
 
 function BlurWord({ word, trigger }: { word: string; trigger: number }) {
   const letters = word.split("");
@@ -174,7 +174,7 @@ export function HeroSection() {
         >
           <span className="inline-flex items-center gap-3 text-sm font-mono text-white/60">
             <span className="w-8 h-px bg-white/30" />
-            Autonomous AI agents for distributed computing
+            AI trading intelligence for SoSoValue and SoDEX
           </span>
         </div>
         
@@ -185,9 +185,9 @@ export function HeroSection() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            <span className="block whitespace-nowrap">Distributed compute,</span>
+            <span className="block whitespace-nowrap">Whale moves,</span>
             <span className="block whitespace-nowrap">
-              agents that{" "}
+              AI that{" "}
               <span className="relative inline-block">
                 <BlurWord word={words[wordIndex]} trigger={wordIndex} />
               </span>
@@ -205,9 +205,9 @@ export function HeroSection() {
       >
         <div className="max-w-[1400px] mx-auto flex items-start gap-10 lg:gap-20">
           {[
-            { value: "3500+", label: "autonomous agents active" },
-            { value: "99.7%", label: "distributed uptime" },
-            { value: "<50ms", label: "execution latency" },
+            { value: "24/7", label: "market intelligence loop" },
+            { value: "EIP-712", label: "SoDEX order intents" },
+            { value: "286623", label: "ValueChain mainnet id" },
           ].map((stat) => (
             <div key={stat.label} className="flex flex-col gap-2">
               <span className="text-3xl lg:text-4xl font-display text-white">{stat.value}</span>

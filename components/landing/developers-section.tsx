@@ -4,26 +4,26 @@ import { useState, useEffect, useRef } from "react";
 
 const features = [
   { 
-    title: "TypeScript native", 
-    description: "Full type safety for agent configs and responses."
+    title: "Typed APIs", 
+    description: "Shared TypeScript models for signals, orders, and snapshots."
   },
   { 
-    title: "Streaming results", 
-    description: "Watch your agents think and act in real-time."
+    title: "Live snapshots", 
+    description: "Next API routes refresh SoSoValue and SoDEX data safely."
   },
   { 
-    title: "Multi-model support", 
-    description: "OpenAI, Anthropic, Mistral, or bring your own."
+    title: "AI optional", 
+    description: "OpenAI briefs when configured, deterministic briefs otherwise."
   },
   { 
-    title: "Local debugging", 
-    description: "Test agents locally before deploying to cloud."
+    title: "Mongo ready", 
+    description: "Signal snapshots persist when a MongoDB URI is added."
   },
 ];
 
 export function DevelopersSection() {
   const [isVisible, setIsVisible] = useState(false);
-  const sectionRef = useRef<HTMLSection>(null);
+  const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -68,12 +68,12 @@ export function DevelopersSection() {
         >
           <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
             <span className="w-8 h-px bg-foreground/30" />
-            Developer SDK
+            Builder system
           </span>
           <h2 className="text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9]">
-            Code your agents.
+            Build the analyst.
             <br />
-            <span className="text-muted-foreground">Or let them code.</span>
+            <span className="text-muted-foreground">Ship the desk.</span>
           </h2>
         </div>
 
@@ -84,8 +84,7 @@ export function DevelopersSection() {
           }`}
         >
           <p className="text-xl text-muted-foreground mb-12 leading-relaxed max-w-md">
-            A powerful SDK for building, deploying, and orchestrating AI agents. 
-            Define behaviors in code or natural language.
+            WhaleMind is wired like a real product: server-side data fetches, wallet-safe execution, optional AI, and storage hooks.
           </p>
           <div className="grid grid-cols-2 gap-6">
             {features.map((feature, index) => (

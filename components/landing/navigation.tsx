@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
-  { name: "Capabilities",  href: "#features"      },
-  { name: "Process",       href: "#how-it-works"  },
-  { name: "Infra",         href: "#infra"          },
-  { name: "Integrations",  href: "#integrations"  },
-  { name: "Security",      href: "#security"      },
+  { name: "Signals",       href: "#features"      },
+  { name: "Flow",          href: "#how-it-works"  },
+  { name: "ValueChain",    href: "#infra"          },
+  { name: "Stack",         href: "#integrations"  },
+  { name: "Risk",          href: "#security"      },
 ];
 
 export function Navigation() {
@@ -46,8 +46,8 @@ export function Navigation() {
         >
           {/* Logo */}
           <a href="#" className="flex items-center gap-2 group">
-            <span className={`font-display tracking-tight transition-all duration-500 ${isScrolled ? "text-xl text-foreground" : "text-2xl text-white"}`}>COMPUTE</span>
-            <span className={`font-mono transition-all duration-500 ${isScrolled ? "text-[10px] mt-0.5 text-muted-foreground" : "text-xs mt-1 text-white/60"}`}>TM</span>
+            <span className={`font-display tracking-tight transition-all duration-500 ${isScrolled ? "text-xl text-foreground" : "text-2xl text-white"}`}>WhaleMind</span>
+            <span className={`font-mono transition-all duration-500 ${isScrolled ? "text-[10px] mt-0.5 text-muted-foreground" : "text-xs mt-1 text-white/60"}`}>AI</span>
           </a>
 
           {/* Desktop Navigation */}
@@ -66,14 +66,15 @@ export function Navigation() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
-            <a href="#" className={`transition-all duration-500 ${isScrolled ? "text-xs text-foreground/70 hover:text-foreground" : "text-sm text-white/70 hover:text-white"}`}>
-              Sign in
+            <a href="#live" className={`transition-all duration-500 ${isScrolled ? "text-xs text-foreground/70 hover:text-foreground" : "text-sm text-white/70 hover:text-white"}`}>
+              Dashboard
             </a>
             <Button
+              asChild
               size="sm"
               className={`rounded-full transition-all duration-500 ${isScrolled ? "bg-foreground hover:bg-foreground/90 text-background px-4 h-8 text-xs" : "bg-white hover:bg-white/90 text-black px-6"}`}
             >
-              Deploy agent
+              <a href="#live">Launch mind</a>
             </Button>
           </div>
 
@@ -135,13 +136,14 @@ export function Navigation() {
               className="flex-1 rounded-full h-14 text-base"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Sign in
+              Dashboard
             </Button>
             <Button 
               className="flex-1 bg-foreground text-background rounded-full h-14 text-base"
               onClick={() => setIsMobileMenuOpen(false)}
+              asChild
             >
-              Deploy agent
+              <a href="#live">Launch mind</a>
             </Button>
           </div>
         </div>

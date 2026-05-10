@@ -6,31 +6,31 @@ import { Shield, Lock, Eye, FileCheck } from "lucide-react";
 const securityFeatures = [
   {
     icon: Shield,
-    title: "Isolated execution",
-    description: "Each agent runs in its own secure sandbox.",
+    title: "Dry-run first",
+    description: "Every signal becomes a simulation before a signed order.",
     image: "/images/isolated.jpg",
   },
   {
     icon: Lock,
-    title: "Encrypted memory",
-    description: "Data encrypted at rest and in transit.",
+    title: "Secret-safe config",
+    description: "API keys stay in server env and ignored local files.",
     image: "/images/encrypted.jpg",
   },
   {
     icon: Eye,
-    title: "Full audit trails",
-    description: "Every action logged and inspectable.",
+    title: "Full trade trace",
+    description: "Order payloads, nonces, and hashes are inspectable.",
     image: "/images/audit.jpg",
   },
   {
     icon: FileCheck,
-    title: "Permission boundaries",
-    description: "Principle of least privilege by design.",
+    title: "Wallet boundaries",
+    description: "No live SoDEX write happens without user signing.",
     image: "/images/permissions.jpg",
   },
 ];
 
-const certifications = ["SOC 2", "ISO 27001", "HIPAA", "GDPR"];
+const certifications = ["EIP-712", "No blind fills", "Env secrets", "Rate aware"];
 
 export function SecuritySection() {
   const [isVisible, setIsVisible] = useState(false);
@@ -67,16 +67,16 @@ export function SecuritySection() {
             isVisible ? "opacity-100" : "opacity-0"
           }`}>
             <span className="w-12 h-px bg-foreground/20" />
-            Security
+            Risk
           </span>
           
           {/* Title — full width */}
           <h2 className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] mb-12 transition-all duration-1000 ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
           }`}>
-            Autonomous,
+            Intelligent,
             <br />
-            <span className="text-muted-foreground">not uncontrolled.</span>
+            <span className="text-muted-foreground">not reckless.</span>
           </h2>
           
           {/* Description — below title */}
@@ -84,7 +84,7 @@ export function SecuritySection() {
             isVisible ? "opacity-100" : "opacity-0"
           }`}>
             <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl">
-              Your agents are powerful but constrained. Enterprise-grade security ensures they only do what you allow.
+              WhaleMind separates analysis, simulation, signature, and execution so insight never silently becomes a trade.
             </p>
           </div>
         </div>
@@ -109,10 +109,10 @@ export function SecuritySection() {
             </div>
             
             <div className="relative z-10">
-              <span className="font-mono text-sm text-muted-foreground">Active protection</span>
+              <span className="font-mono text-sm text-muted-foreground">Execution protection</span>
               <div className="mt-8">
                 <span className="text-7xl lg:text-8xl font-display">0</span>
-                <span className="block text-muted-foreground mt-2">Security incidents this year</span>
+                <span className="block text-muted-foreground mt-2">Unsigned live orders allowed</span>
               </div>
             </div>
             
