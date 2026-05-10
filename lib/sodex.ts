@@ -6,7 +6,12 @@ import { VALUECHAIN_MAINNET, VALUECHAIN_TESTNET } from "@/lib/valuechain";
 import type { ChainStatus, OrderIntent, OrderIntentInput, SodexMarket, WhaleEvent } from "@/lib/whalemind-types";
 
 const SODEX_ENV = (process.env.SODEX_ENV === "testnet" ? "testnet" : "mainnet") as "mainnet" | "testnet";
-const DEFAULT_SYMBOL = "vBTC_vUSDC";
+const DEFAULT_SYMBOL = process.env.SODEX_DEFAULT_SYMBOL ?? "vBTC_vUSDC";
+const SODEX_DEFAULT_ACCOUNT_ID =
+  process.env.SODEX_DEFAULT_ACCOUNT_ID !== undefined && process.env.SODEX_DEFAULT_ACCOUNT_ID !== ""
+    ? Number(process.env.SODEX_DEFAULT_ACCOUNT_ID)
+    : undefined;
+const SODEX_EIP712_VERIFYING_CONTRACT = process.env.SODEX_EIP712_VERIFYING_CONTRACT;
 
 const SPOT_ENDPOINT =
   process.env.SODEX_SPOT_ENDPOINT ??
@@ -30,13 +35,28 @@ type LooseTrade = Record<string, unknown>;
 
 const orderIntentSchema = z.object({
   walletAddress: z.string().refine((value) => isAddress(value), "Valid EVM wallet address required"),
-  accountId: z.coerce.number().int().nonnegative().optional().default(0),
+  accountId: z.coerce.number().int().nonnegative().optional(),
   symbol: z.string().min(3).optional().default(DEFAULT_SYMBOL),
   side: z.enum(["BUY", "SELL"]),
   notionalUsd: z.coerce.number().positive().max(1_000_000),
   orderType: z.enum(["MARKET", "LIMIT"]).optional().default("MARKET"),
   limitPrice: z.coerce.number().positive().optional(),
 });
+
+export function getSodexRuntimeConfig() {
+  const hasEnvAccount = SODEX_DEFAULT_ACCOUNT_ID !== undefined && Number.isFinite(SODEX_DEFAULT_ACCOUNT_ID);
+  const hasContract = Boolean(SODEX_EIP712_VERIFYING_CONTRACT && isAddress(SODEX_EIP712_VERIFYING_CONTRACT));
+  const liveExecutionEnabled = process.env.SODEX_ENABLE_LIVE_EXECUTION === "true" && hasEnvAccount && hasContract;
+
+  return {
+    environment: SODEX_ENV,
+    defaultSymbol: DEFAULT_SYMBOL,
+    spotEndpoint: SPOT_ENDPOINT,
+    hasDefaultAccountId: hasEnvAccount,
+    hasVerifyingContract: hasContract,
+    liveExecutionEnabled,
+  };
+}
 
 function toNumber(value: unknown, fallback?: number) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -119,59 +139,79 @@ export async function getValueChainStatus(): Promise<ChainStatus> {
   }
 }
 
+async function readSodexMarket(symbol = DEFAULT_SYMBOL): Promise<SodexMarket> {
+  const [tickers, books] = await Promise.all([
+    sodexGet<LooseTicker[]>("/markets/tickers", { symbol }),
+    sodexGet<LooseBookTicker[]>("/markets/bookTickers", { symbol }),
+  ]);
+  const ticker = tickers[0] ?? {};
+  const book = books[0] ?? {};
+
+  return {
+    environment: SODEX_ENV,
+    symbol,
+    lastPrice: pickNumber(ticker, ["lastPrice", "price", "close", "c"]),
+    priceChange24h: pickNumber(ticker, ["priceChangePercent", "priceChangePct", "changePct", "priceChange24h"]),
+    volume24h: pickNumber(ticker, ["volume", "quoteVolume", "volume24h"]),
+    bid: pickNumber(book, ["bidPrice", "bestBidPrice", "bid"]),
+    ask: pickNumber(book, ["askPrice", "bestAskPrice", "ask"]),
+    source: "SoDEX",
+  };
+}
+
+export async function getLiveSodexMarket(symbol = DEFAULT_SYMBOL): Promise<SodexMarket> {
+  return readSodexMarket(symbol);
+}
+
 export async function getSodexMarket(symbol = DEFAULT_SYMBOL): Promise<SodexMarket> {
   try {
-    const [tickers, books] = await Promise.all([
-      sodexGet<LooseTicker[]>("/markets/tickers", { symbol }),
-      sodexGet<LooseBookTicker[]>("/markets/bookTickers", { symbol }),
-    ]);
-    const ticker = tickers[0] ?? {};
-    const book = books[0] ?? {};
-
+    const market = await readSodexMarket(symbol);
     return {
-      environment: SODEX_ENV,
-      symbol,
-      lastPrice: pickNumber(ticker, ["lastPrice", "price", "close", "c"], fallbackSodexMarket().lastPrice),
-      priceChange24h: pickNumber(ticker, ["priceChangePercent", "priceChangePct", "changePct", "priceChange24h"]),
-      volume24h: pickNumber(ticker, ["volume", "quoteVolume", "volume24h"]),
-      bid: pickNumber(book, ["bidPrice", "bestBidPrice", "bid"]),
-      ask: pickNumber(book, ["askPrice", "bestAskPrice", "ask"]),
-      source: "SoDEX",
+      ...market,
+      lastPrice: market.lastPrice ?? fallbackSodexMarket().lastPrice,
     };
   } catch {
     return { ...fallbackSodexMarket(), environment: SODEX_ENV, symbol };
   }
 }
 
+async function readSodexWhaleEvents(symbol = DEFAULT_SYMBOL): Promise<WhaleEvent[]> {
+  const trades = await sodexGet<LooseTrade[]>(`/markets/${symbol}/trades`, { limit: 25 });
+  const generatedAt = new Date().toISOString();
+  const events = trades
+    .map((trade, index) => {
+      const price = pickNumber(trade, ["price", "p"], 0) ?? 0;
+      const quantity = pickNumber(trade, ["quantity", "qty", "q"], 0) ?? 0;
+      const notionalUsd = price * quantity;
+      const sideText = String(trade.side ?? trade.isBuyerMaker ?? "").toLowerCase();
+      const direction: WhaleEvent["direction"] =
+        sideText.includes("sell") || sideText === "true" ? "distribution" : "accumulation";
+
+      return {
+        id: `sodex-${symbol}-${index}`,
+        asset: symbol.replace("v", "").split("_")[0] || "BTC",
+        direction,
+        notionalUsd,
+        confidence: Math.min(92, Math.max(52, Math.round(notionalUsd / 25_000) + 55)),
+        summary: `${symbol} order-book print detected on SoDEX with estimated notional exposure.`,
+        source: "SoDEX order book" as const,
+        timestamp: generatedAt,
+      };
+    })
+    .filter((event) => event.notionalUsd > 0)
+    .sort((a, b) => b.notionalUsd - a.notionalUsd)
+    .slice(0, 3);
+
+  return events.length > 0 ? events : [];
+}
+
+export async function getLiveSodexWhaleEvents(symbol = DEFAULT_SYMBOL): Promise<WhaleEvent[]> {
+  return readSodexWhaleEvents(symbol);
+}
+
 export async function getSodexWhaleEvents(symbol = DEFAULT_SYMBOL): Promise<WhaleEvent[]> {
   try {
-    const trades = await sodexGet<LooseTrade[]>(`/markets/${symbol}/trades`, { limit: 25 });
-    const generatedAt = new Date().toISOString();
-    const events = trades
-      .map((trade, index) => {
-        const price = pickNumber(trade, ["price", "p"], 0) ?? 0;
-        const quantity = pickNumber(trade, ["quantity", "qty", "q"], 0) ?? 0;
-        const notionalUsd = price * quantity;
-        const sideText = String(trade.side ?? trade.isBuyerMaker ?? "").toLowerCase();
-        const direction: WhaleEvent["direction"] =
-          sideText.includes("sell") || sideText === "true" ? "distribution" : "accumulation";
-
-        return {
-          id: `sodex-${symbol}-${index}`,
-          asset: symbol.replace("v", "").split("_")[0] || "BTC",
-          direction,
-          notionalUsd,
-          confidence: Math.min(92, Math.max(52, Math.round(notionalUsd / 25_000) + 55)),
-          summary: `${symbol} order-book print detected on SoDEX with estimated notional exposure.`,
-          source: "SoDEX order book" as const,
-          timestamp: generatedAt,
-        };
-      })
-      .filter((event) => event.notionalUsd > 0)
-      .sort((a, b) => b.notionalUsd - a.notionalUsd)
-      .slice(0, 3);
-
-    return events.length > 0 ? events : [];
+    return await readSodexWhaleEvents(symbol);
   } catch {
     return [];
   }
@@ -191,6 +231,14 @@ async function resolveSymbolId(symbol: string) {
 export async function createSodexOrderIntent(input: OrderIntentInput): Promise<OrderIntent> {
   const parsed = orderIntentSchema.parse(input);
   const symbolId = await resolveSymbolId(parsed.symbol);
+  const resolvedAccountId = parsed.accountId ?? SODEX_DEFAULT_ACCOUNT_ID;
+  const hasAccountId = resolvedAccountId !== undefined && Number.isFinite(resolvedAccountId);
+  const hasVerifyingContract = Boolean(
+    SODEX_EIP712_VERIFYING_CONTRACT && isAddress(SODEX_EIP712_VERIFYING_CONTRACT)
+  );
+  const verifyingContract = hasVerifyingContract
+    ? SODEX_EIP712_VERIFYING_CONTRACT!
+    : "0x0000000000000000000000000000000000000000";
   const clOrdID = `whalemind-${Date.now().toString(36)}`;
   const nonce = Date.now();
   const side = parsed.side === "BUY" ? 1 : 2;
@@ -217,7 +265,7 @@ export async function createSodexOrderIntent(input: OrderIntentInput): Promise<O
   const payload = {
     type: "newOrder",
     params: {
-      accountID: parsed.accountId,
+      accountID: hasAccountId ? resolvedAccountId : 0,
       symbolID: symbolId,
       orders: [order],
     },
@@ -236,7 +284,7 @@ export async function createSodexOrderIntent(input: OrderIntentInput): Promise<O
         name: "spot",
         version: "1",
         chainId: CHAIN.chainId,
-        verifyingContract: "0x0000000000000000000000000000000000000000",
+        verifyingContract,
       },
       types: {
         EIP712Domain: [
@@ -262,10 +310,16 @@ export async function createSodexOrderIntent(input: OrderIntentInput): Promise<O
       "X-API-Key": parsed.walletAddress,
       "X-API-Nonce": String(nonce),
     },
-    executionMode: "ready-for-signature",
+    executionMode: hasAccountId && hasVerifyingContract ? "ready-for-signature" : "dry-run",
     warnings: [
       "This is an EIP-712 order intent. Submit only after the wallet signs and live execution is enabled.",
       "SoDEX requires the signature prefixed with 0x01 in X-API-Sign.",
+      ...(!hasAccountId
+        ? ["SoDEX account ID is missing. Add SODEX_DEFAULT_ACCOUNT_ID or pass accountId from the connected account."]
+        : []),
+      ...(!hasVerifyingContract
+        ? ["SoDEX EIP-712 verifying contract is missing. Add SODEX_EIP712_VERIFYING_CONTRACT before live signing."]
+        : []),
     ],
   };
 }

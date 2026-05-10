@@ -124,6 +124,11 @@ export function LiveIntelligencePanel() {
   };
 
   const simulateOrder = async () => {
+    if (!wallet) {
+      setStatus("Connect wallet before creating a SoDEX intent");
+      return;
+    }
+
     setIsBusy(true);
     setIntent(null);
     try {
@@ -131,7 +136,7 @@ export function LiveIntelligencePanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          walletAddress: wallet ?? "0x0000000000000000000000000000000000000001",
+          walletAddress: wallet,
           symbol: snapshot?.sodex.symbol ?? "vBTC_vUSDC",
           side: topSignal?.action === "SELL" ? "SELL" : "BUY",
           notionalUsd: 250,

@@ -43,11 +43,13 @@ Completed in Wave 1:
 - Added `.env.example` and ignored `.env.local` support for production-safe secrets.
 - Added the WhaleMind whale image as the app favicon, Apple icon, OpenGraph preview, and README hero mark.
 - Added local verification steps for type checks, production builds, API smoke tests, and browser inspection.
+- Added a separate `/dashboard` app surface with wallet-based login, live market views, SoDEX intent creation, and readiness checks.
 
 Wave 1 remaining before demo day:
 
-- Add final SoDEX account IDs and exchange-specific contract details when the organizer credentials are available.
-- Add a real OpenAI key only if you want dynamic AI text instead of the deterministic analyst brief.
+- Paste the final SoDEX account ID into `SODEX_DEFAULT_ACCOUNT_ID` when the organizer account is available.
+- Paste the exchange-specific EIP-712 verifying contract into `SODEX_EIP712_VERIFYING_CONTRACT` when provided.
+- Add a real `OPENAI_API_KEY` only if you want dynamic AI text instead of the deterministic analyst brief.
 - Add `MONGODB_URI` only if you want persisted signal history during judging.
 
 ## Buildathon Fit
@@ -85,9 +87,12 @@ Optional production settings:
 OPENAI_API_KEY=...
 MONGODB_URI=...
 SODEX_ENABLE_LIVE_EXECUTION=false
+SODEX_DEFAULT_ACCOUNT_ID=
+SODEX_EIP712_VERIFYING_CONTRACT=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Keep `SODEX_ENABLE_LIVE_EXECUTION=false` while testing. Turn it on only after wallet signing, account IDs, symbol rules, and risk controls are verified.
+Keep `SODEX_ENABLE_LIVE_EXECUTION=false` while testing. The dashboard marks live execution ready only after the flag, `SODEX_DEFAULT_ACCOUNT_ID`, and `SODEX_EIP712_VERIFYING_CONTRACT` are all configured.
 
 ## Local Development
 
