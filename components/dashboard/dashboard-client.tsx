@@ -2,20 +2,27 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
   AlertCircle,
   ArrowLeft,
   ArrowRight,
   Check,
-  Database,
-  Gauge,
   Link2,
   Loader2,
   Lock,
   RefreshCw,
-  ShieldCheck,
   Wallet,
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +42,7 @@ declare global {
 }
 
 function money(value?: number) {
-  if (value === undefined || Number.isNaN(value)) return "n/a";
+  if (value === undefined || Number.isNaN(value)) return "live data unavailable";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -45,7 +52,7 @@ function money(value?: number) {
 }
 
 function compact(value?: number) {
-  if (value === undefined || Number.isNaN(value)) return "n/a";
+  if (value === undefined || Number.isNaN(value)) return "unavailable";
   return new Intl.NumberFormat("en-US", {
     notation: "compact",
     maximumFractionDigits: 2,
@@ -53,7 +60,7 @@ function compact(value?: number) {
 }
 
 function pct(value?: number) {
-  if (value === undefined || Number.isNaN(value)) return "n/a";
+  if (value === undefined || Number.isNaN(value)) return "unavailable";
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
@@ -63,11 +70,19 @@ function shortAddress(address?: string) {
 }
 
 function formatTime(value?: string) {
-  if (!value) return "n/a";
+  if (!value) return "syncing";
   return new Intl.DateTimeFormat("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+  }).format(new Date(value));
+}
+
+function chartTime(value?: string) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(new Date(value));
 }
 
@@ -96,51 +111,8 @@ async function switchToValueChain(provider: EthereumProvider) {
   }
 }
 
-function Panel({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <section className={cn("border border-foreground/10 bg-foreground/[0.025] p-6 lg:p-8", className)}>
-      {children}
-    </section>
-  );
-}
-
-function SectionTitle({
-  eyebrow,
-  title,
-  right,
-}: {
-  eyebrow: string;
-  title: string;
-  right?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-6 flex items-start justify-between gap-4">
-      <div>
-        <div className="mb-2 flex items-center gap-3 text-xs font-mono text-muted-foreground">
-          <span className="h-px w-8 bg-foreground/25" />
-          {eyebrow}
-        </div>
-        <h2 className="font-display text-3xl tracking-tight lg:text-4xl">{title}</h2>
-      </div>
-      {right}
-    </div>
-  );
-}
-
-function EmptyBlock({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="border border-dashed border-foreground/10 p-8 text-center">
-      <AlertCircle className="mx-auto mb-4 h-6 w-6 text-muted-foreground" />
-      <p className="font-medium">{title}</p>
-      <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
-    </div>
-  );
+function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <section className={cn("border-b border-foreground/10 py-6", className)}>{children}</section>;
 }
 
 function StatusPill({ ok, label }: { ok: boolean; label: string }) {
@@ -157,6 +129,24 @@ function StatusPill({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
+function SectionHeading({ label, title }: { label: string; title: string }) {
+  return (
+    <div className="mb-4">
+      <div className="mb-2 text-xs font-mono uppercase text-muted-foreground">{label}</div>
+      <h2 className="font-display text-2xl tracking-tight">{title}</h2>
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="border border-dashed border-foreground/10 p-6 text-sm text-muted-foreground">
+      <AlertCircle className="mb-3 h-5 w-5" />
+      {text}
+    </div>
+  );
+}
+
 function SignalTone({ signal }: { signal?: AiSignal }) {
   const tone =
     signal?.action === "BUY"
@@ -167,7 +157,120 @@ function SignalTone({ signal }: { signal?: AiSignal }) {
           ? "text-white"
           : "text-muted-foreground";
 
-  return <span className={tone}>{signal?.action ?? "NO SIGNAL"}</span>;
+  return <span className={tone}>{signal?.action ?? "NO LIVE SIGNAL"}</span>;
+}
+
+function ChartShell({ children, empty }: { children: React.ReactNode; empty: boolean }) {
+  if (empty) {
+    return <EmptyState text="Not enough live data returned yet to draw this chart." />;
+  }
+
+  return <div className="h-72 w-full">{children}</div>;
+}
+
+function LiveTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number }>; label?: string }) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="border border-foreground/10 bg-background/95 p-3 text-xs shadow-xl">
+      <div className="mb-2 font-mono text-muted-foreground">{label}</div>
+      <div className="space-y-1">
+        {payload.map((item) => (
+          <div key={item.name} className="flex justify-between gap-5">
+            <span>{item.name}</span>
+            <span className="font-mono">{typeof item.value === "number" ? compact(item.value) : item.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MarketCharts({
+  assetLabel,
+  priceHistory,
+  assetChart,
+  flowChart,
+  whaleChart,
+}: {
+  assetLabel: string;
+  priceHistory: Array<{ time: string; price: number; confidence: number | undefined }>;
+  assetChart: Array<{ symbol: string; price: number; change: number; volume: number }>;
+  flowChart: Array<{ symbol: string; netInflow: number; totalAssets: number }>;
+  whaleChart: Array<{ asset: string; notional: number; confidence: number }>;
+}) {
+  return (
+    <section className="grid gap-8 border-b border-foreground/10 py-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <div>
+        <SectionHeading label="Live chart" title={`${assetLabel} price and confidence`} />
+        <ChartShell empty={priceHistory.length === 0}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={priceHistory} margin={{ left: 0, right: 12, top: 10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="priceFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#eca8d6" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#eca8d6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+              <XAxis dataKey="time" tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="price" tickFormatter={(value) => compact(Number(value))} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} axisLine={false} tickLine={false} width={54} />
+              <YAxis yAxisId="confidence" orientation="right" domain={[0, 100]} tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }} axisLine={false} tickLine={false} width={34} />
+              <Tooltip content={<LiveTooltip />} />
+              <Area yAxisId="price" type="monotone" dataKey="price" name="price" stroke="#eca8d6" fill="url(#priceFill)" strokeWidth={2} dot={priceHistory.length < 3} />
+              <Area yAxisId="confidence" type="monotone" dataKey="confidence" name="confidence" stroke="#67e8f9" fill="transparent" strokeWidth={2} dot={priceHistory.length < 3} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartShell>
+      </div>
+
+      <div className="grid gap-8">
+        <div>
+          <SectionHeading label="Momentum" title="SoSoValue 24h move" />
+          <ChartShell empty={assetChart.length === 0}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={assetChart} margin={{ left: 0, right: 8, top: 10, bottom: 0 }}>
+                <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                <XAxis dataKey="symbol" tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(value) => `${Number(value).toFixed(0)}%`} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} axisLine={false} tickLine={false} width={38} />
+                <Tooltip content={<LiveTooltip />} />
+                <Bar dataKey="change" name="24h change" fill="#eca8d6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartShell>
+        </div>
+
+        <div className="grid gap-8 sm:grid-cols-2">
+          <div>
+            <SectionHeading label="ETF" title="Net flow" />
+            <ChartShell empty={flowChart.length === 0}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={flowChart} margin={{ left: 0, right: 6, top: 10, bottom: 0 }}>
+                  <XAxis dataKey="symbol" tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={(value) => compact(Number(value))} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} axisLine={false} tickLine={false} width={46} />
+                  <Tooltip content={<LiveTooltip />} />
+                  <Bar dataKey="netInflow" name="net inflow" fill="#67e8f9" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartShell>
+          </div>
+          <div>
+            <SectionHeading label="SoDEX" title="Prints" />
+            <ChartShell empty={whaleChart.length === 0}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={whaleChart} margin={{ left: 0, right: 6, top: 10, bottom: 0 }}>
+                  <XAxis dataKey="asset" tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={(value) => compact(Number(value))} tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }} axisLine={false} tickLine={false} width={46} />
+                  <Tooltip content={<LiveTooltip />} />
+                  <Bar dataKey="notional" name="notional" fill="#eca8d6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartShell>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export function DashboardClient() {
@@ -186,11 +289,11 @@ export function DashboardClient() {
     setIsLoading(true);
     try {
       const response = await fetch("/api/dashboard", { cache: "no-store" });
-      const data = (await response.json()) as DashboardSnapshot;
-      if (!response.ok || "error" in data) throw new Error("Unable to load live dashboard");
+      const data = (await response.json()) as DashboardSnapshot & { error?: string };
+      if (!response.ok || data.error) throw new Error(data.error ?? "Unable to load live dashboard");
       setSnapshot(data);
       setSelectedAsset((current) => current ?? data.signals[0]?.asset ?? data.assets[0]?.symbol);
-      setStatus(data.state === "live" ? "Live dashboard synced" : "Dashboard synced with source warnings");
+      setStatus(data.state === "live" ? "Live data synced" : "Live data synced with source warnings");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Dashboard sync failed");
     } finally {
@@ -225,7 +328,45 @@ export function DashboardClient() {
     return snapshot?.signals.find((signal) => signal.asset === selectedAsset) ?? topSignal;
   }, [selectedAsset, snapshot?.signals, topSignal]);
   const selectedMarket = snapshot?.assets.find((asset) => asset.symbol === selectedSignal?.asset);
-  const hasWallet = Boolean(wallet);
+  const priceHistory = useMemo(() => {
+    const assetSymbol = selectedSignal?.asset ?? snapshot?.assets[0]?.symbol;
+    if (!assetSymbol) return [];
+
+    return (snapshot?.history ?? [])
+      .map((point) => {
+        const asset = point.assets.find((item) => item.symbol === assetSymbol);
+        const signal = point.signals.find((item) => item.asset === assetSymbol);
+
+        return {
+          time: chartTime(point.generatedAt),
+          price: asset?.price,
+          confidence: signal?.confidence,
+        };
+      })
+      .filter((point): point is { time: string; price: number; confidence: number | undefined } => typeof point.price === "number");
+  }, [selectedSignal?.asset, snapshot?.assets, snapshot?.history]);
+  const assetChart = useMemo(() => {
+    return (snapshot?.assets ?? []).map((asset) => ({
+      symbol: asset.symbol,
+      price: asset.price,
+      change: asset.change24h,
+      volume: asset.volume24h,
+    }));
+  }, [snapshot?.assets]);
+  const flowChart = useMemo(() => {
+    return (snapshot?.etfFlows ?? []).map((flow) => ({
+      symbol: flow.symbol,
+      netInflow: flow.netInflow,
+      totalAssets: flow.totalAssets,
+    }));
+  }, [snapshot?.etfFlows]);
+  const whaleChart = useMemo(() => {
+    return (snapshot?.whaleEvents ?? []).map((event) => ({
+      asset: event.asset,
+      notional: event.notionalUsd,
+      confidence: event.confidence,
+    }));
+  }, [snapshot?.whaleEvents]);
 
   const connectWallet = async () => {
     setIsWalletBusy(true);
@@ -285,51 +426,25 @@ export function DashboardClient() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
-      <div className="pointer-events-none absolute inset-0 opacity-40">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(236,168,214,0.12),transparent_30%),radial-gradient(circle_at_80%_20%,rgba(103,232,249,0.08),transparent_28%)]" />
-        <div
-          className="absolute inset-0 opacity-25"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
-            backgroundSize: "56px 56px",
-          }}
-        />
-      </div>
-
-      <header className="fixed left-4 right-4 top-4 z-50">
-        <nav className="mx-auto flex h-14 max-w-[1400px] items-center justify-between border border-foreground/10 bg-background/80 px-5 backdrop-blur-xl">
+    <main className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-40 border-b border-foreground/10 bg-background/90 backdrop-blur-xl">
+        <nav className="mx-auto flex h-16 max-w-[1280px] items-center justify-between px-5">
           <a href="/" className="flex items-center gap-3">
             <ArrowLeft className="h-4 w-4 text-muted-foreground" />
-            <span className="font-display text-xl tracking-tight">WhaleMind</span>
-            <span className="font-mono text-[10px] text-muted-foreground">AI</span>
+            <span className="font-display text-xl tracking-tight">WhaleMind AI</span>
           </a>
 
           <div className="hidden items-center gap-3 md:flex">
-            <StatusPill ok={snapshot?.state === "live"} label={snapshot?.state ?? "sync"} />
-            <span className="font-mono text-xs text-muted-foreground">{snapshot ? formatTime(snapshot.generatedAt) : "syncing"}</span>
+            <StatusPill ok={snapshot?.state === "live"} label={snapshot?.state ?? "syncing"} />
+            <span className="font-mono text-xs text-muted-foreground">{formatTime(snapshot?.generatedAt)}</span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={refresh}
-              disabled={isLoading}
-              className="rounded-full border-foreground/20 bg-transparent"
-            >
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={refresh} disabled={isLoading} className="rounded-full border-foreground/20 bg-transparent">
               <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={connectWallet}
-              disabled={isWalletBusy}
-              className="rounded-full bg-foreground px-4 text-background hover:bg-foreground/90"
-            >
+            <Button type="button" size="sm" onClick={connectWallet} disabled={isWalletBusy} className="rounded-full bg-foreground px-4 text-background hover:bg-foreground/90">
               {isWalletBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
               {shortAddress(wallet)}
             </Button>
@@ -337,216 +452,173 @@ export function DashboardClient() {
         </nav>
       </header>
 
-      <div className="relative z-10 mx-auto max-w-[1400px] px-6 pb-16 pt-28 lg:px-12">
-        {!hasWallet ? (
-          <section className="grid min-h-[calc(100vh-8rem)] items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
-            <div>
-              <div className="mb-6 inline-flex items-center gap-3 text-sm font-mono text-muted-foreground">
-                <span className="h-px w-12 bg-foreground/25" />
-                Wallet login
-              </div>
-              <h1 className="max-w-4xl font-display text-6xl leading-[0.9] tracking-tight md:text-7xl lg:text-[120px]">
-                Connect.
-                <br />
-                <span className="text-muted-foreground">Enter the desk.</span>
-              </h1>
-              <p className="mt-8 max-w-xl text-lg leading-relaxed text-muted-foreground">
-                {snapshot?.aiBrief ?? "Live dashboard data is syncing from SoSoValue, SoDEX, and ValueChain."}
+      <div className="mx-auto max-w-[1280px] px-5 py-8">
+        {!wallet ? (
+          <section className="grid min-h-[calc(100vh-8rem)] items-center gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+            <Panel className="p-7 lg:p-10">
+              <div className="mb-4 text-xs font-mono uppercase text-muted-foreground">Wallet login</div>
+              <h1 className="font-display text-5xl leading-none tracking-tight md:text-7xl">Connect wallet</h1>
+              <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground">
+                {snapshot?.aiBrief ?? "WhaleMind is waiting for live SoSoValue, SoDEX, and ValueChain data."}
               </p>
-
-              <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-                <Button
-                  type="button"
-                  onClick={connectWallet}
-                  disabled={isWalletBusy}
-                  className="h-14 rounded-full bg-foreground px-8 text-base text-background hover:bg-foreground/90"
-                >
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Button type="button" onClick={connectWallet} disabled={isWalletBusy} className="h-12 rounded-full bg-foreground px-7 text-background hover:bg-foreground/90">
                   {isWalletBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
                   Connect wallet
                 </Button>
-                <Button asChild variant="outline" className="h-14 rounded-full border-foreground/20 bg-transparent px-8 text-base">
+                <Button asChild variant="outline" className="h-12 rounded-full border-foreground/20 bg-transparent px-7">
                   <a href="/">Back to site</a>
                 </Button>
               </div>
+            </Panel>
 
-              <div className="mt-10 flex flex-wrap gap-3">
-                <StatusPill ok={Boolean(snapshot?.assets.length)} label="SoSoValue" />
+            <Panel>
+              <SectionHeading label="Live sources" title="No dummy dashboard data" />
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  ["Assets", snapshot?.assets.length ?? 0],
+                  ["Signals", snapshot?.signals.length ?? 0],
+                  ["ETF flows", snapshot?.etfFlows.length ?? 0],
+                  ["News", snapshot?.news.length ?? 0],
+                ].map(([label, value]) => (
+                  <div key={label} className="border border-foreground/10 p-4">
+                    <div className="font-display text-3xl">{value}</div>
+                    <div className="text-xs text-muted-foreground">{label}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <StatusPill ok={Boolean(snapshot?.config.sosovalueApi)} label="SoSoValue" />
                 <StatusPill ok={Boolean(snapshot?.sodex)} label="SoDEX" />
                 <StatusPill ok={Boolean(snapshot?.chain?.isLive)} label="ValueChain" />
                 <StatusPill ok={Boolean(snapshot?.config.openaiApi)} label="OpenAI" />
                 <StatusPill ok={Boolean(snapshot?.config.mongodb)} label="MongoDB" />
               </div>
-            </div>
+            </Panel>
 
-            <div className="relative min-h-[520px] overflow-hidden border border-foreground/10 bg-black">
-              <img src="/images/whale.png" alt="WhaleMind whale" className="absolute inset-0 h-full w-full object-contain opacity-80" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-8">
-                <div className="mb-2 text-xs font-mono text-white/50">Live source status</div>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    ["Assets", snapshot?.assets.length ?? 0],
-                    ["Signals", snapshot?.signals.length ?? 0],
-                    ["ETF flows", snapshot?.etfFlows.length ?? 0],
-                    ["News", snapshot?.news.length ?? 0],
-                  ].map(([label, value]) => (
-                    <div key={label} className="border border-white/10 bg-white/[0.03] p-4">
-                      <div className="font-display text-3xl text-white">{value}</div>
-                      <div className="text-xs text-white/45">{label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="lg:col-span-2">
+              <MarketCharts
+                assetLabel={selectedSignal?.asset ?? snapshot?.assets[0]?.symbol ?? "Asset"}
+                priceHistory={priceHistory}
+                assetChart={assetChart}
+                flowChart={flowChart}
+                whaleChart={whaleChart}
+              />
             </div>
           </section>
         ) : (
-          <div className="space-y-6 lg:space-y-8">
-            <section className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-              <Panel className="relative min-h-[360px] overflow-hidden bg-black">
-                <img src="/images/whale.png" alt="" aria-hidden="true" className="absolute bottom-0 right-0 h-full w-1/2 object-contain opacity-25" />
-                <div className="relative z-10">
-                  <div className="mb-8 flex flex-wrap items-center gap-3">
-                    <StatusPill ok={snapshot?.state === "live"} label={snapshot?.state ?? "sync"} />
-                    <span className="font-mono text-xs text-muted-foreground">{status}</span>
-                  </div>
-                  <h1 className="max-w-3xl font-display text-6xl leading-[0.9] tracking-tight md:text-7xl lg:text-[108px]">
-                    Live market
-                    <br />
-                    <span className="text-muted-foreground">command.</span>
-                  </h1>
-                  <p className="mt-8 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-                    {snapshot?.aiBrief ?? "Waiting for live market brief."}
-                  </p>
+          <div className="space-y-5">
+            <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
+              <Panel className="p-7">
+                <div className="mb-4 flex flex-wrap items-center gap-3">
+                  <StatusPill ok={snapshot?.state === "live"} label={snapshot?.state ?? "syncing"} />
+                  <span className="font-mono text-xs text-muted-foreground">{status}</span>
                 </div>
+                <h1 className="font-display text-5xl leading-none tracking-tight md:text-7xl">Live dashboard</h1>
+                <p className="mt-5 max-w-3xl text-base leading-relaxed text-muted-foreground">
+                  {snapshot?.aiBrief ?? "Waiting for live market brief."}
+                </p>
               </Panel>
 
               <Panel>
-                <SectionTitle eyebrow="Session" title="Wallet login" />
-                <div className="space-y-5">
-                  <div>
-                    <div className="text-xs font-mono text-muted-foreground">Connected wallet</div>
-                    <div className="mt-2 break-all font-mono text-sm">{wallet}</div>
+                <SectionHeading label="Wallet" title={shortAddress(wallet)} />
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between gap-4 border-b border-foreground/10 pb-3">
+                    <span className="text-muted-foreground">Chain</span>
+                    <span className="font-mono">{snapshot?.chain?.chainId ?? "unavailable"}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="border border-foreground/10 p-4">
-                      <div className="text-xs text-muted-foreground">Chain</div>
-                      <div className="mt-2 font-display text-2xl">{snapshot?.chain?.chainId ?? "n/a"}</div>
-                    </div>
-                    <div className="border border-foreground/10 p-4">
-                      <div className="text-xs text-muted-foreground">Block</div>
-                      <div className="mt-2 font-display text-2xl">{snapshot?.chain?.blockNumber ?? "n/a"}</div>
-                    </div>
+                  <div className="flex justify-between gap-4 border-b border-foreground/10 pb-3">
+                    <span className="text-muted-foreground">Block</span>
+                    <span className="font-mono">{snapshot?.chain?.blockNumber ?? "unavailable"}</span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <StatusPill ok={Boolean(snapshot?.config.sodexAccountId)} label="SoDEX account" />
-                    <StatusPill ok={Boolean(snapshot?.config.sodexVerifyingContract)} label="EIP-712 contract" />
-                    <StatusPill ok={Boolean(snapshot?.config.sodexLiveExecution)} label="Live execution" />
-                  </div>
+                  <div className="break-all font-mono text-xs text-muted-foreground">{wallet}</div>
                 </div>
               </Panel>
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-4">
+            <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
               <Panel>
-                <Gauge className="mb-5 h-5 w-5 text-[#eca8d6]" />
-                <div className="text-xs font-mono text-muted-foreground">Top signal</div>
-                <div className="mt-2 font-display text-4xl">
-                  <SignalTone signal={topSignal} />
-                </div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {topSignal ? `${topSignal.asset} / ${topSignal.confidence}%` : "No live signal"}
-                </div>
+                <div className="text-xs font-mono uppercase text-muted-foreground">Top signal</div>
+                <div className="mt-2 font-display text-3xl"><SignalTone signal={topSignal} /></div>
+                <div className="mt-2 text-sm text-muted-foreground">{topSignal ? `${topSignal.asset} / ${topSignal.confidence}% confidence` : "No live signal returned"}</div>
               </Panel>
               <Panel>
-                <Activity className="mb-5 h-5 w-5 text-[#eca8d6]" />
-                <div className="text-xs font-mono text-muted-foreground">SoDEX route</div>
-                <div className="mt-2 font-display text-4xl">{snapshot?.sodex?.symbol ?? "n/a"}</div>
+                <div className="text-xs font-mono uppercase text-muted-foreground">SoDEX route</div>
+                <div className="mt-2 font-display text-3xl">{snapshot?.sodex?.symbol ?? "unavailable"}</div>
                 <div className="mt-2 text-sm text-muted-foreground">{money(snapshot?.sodex?.lastPrice)}</div>
               </Panel>
               <Panel>
-                <Database className="mb-5 h-5 w-5 text-[#eca8d6]" />
-                <div className="text-xs font-mono text-muted-foreground">SoSoValue assets</div>
-                <div className="mt-2 font-display text-4xl">{snapshot?.assets.length ?? 0}</div>
-                <div className="mt-2 text-sm text-muted-foreground">live market snapshots</div>
+                <div className="text-xs font-mono uppercase text-muted-foreground">Live sources</div>
+                <div className="mt-2 font-display text-3xl">{snapshot ? snapshot.assets.length + snapshot.etfFlows.length + snapshot.news.length : 0}</div>
+                <div className="mt-2 text-sm text-muted-foreground">records this refresh</div>
               </Panel>
               <Panel>
-                <ShieldCheck className="mb-5 h-5 w-5 text-[#eca8d6]" />
-                <div className="text-xs font-mono text-muted-foreground">Execution mode</div>
-                <div className="mt-2 font-display text-4xl">{snapshot?.config.sodexLiveExecution ? "LIVE" : "GUARD"}</div>
+                <div className="text-xs font-mono uppercase text-muted-foreground">Execution</div>
+                <div className="mt-2 font-display text-3xl">{snapshot?.config.sodexLiveExecution ? "LIVE" : "DRY-RUN"}</div>
                 <div className="mt-2 text-sm text-muted-foreground">wallet signature required</div>
               </Panel>
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+            <MarketCharts
+              assetLabel={selectedSignal?.asset ?? "Asset"}
+              priceHistory={priceHistory}
+              assetChart={assetChart}
+              flowChart={flowChart}
+              whaleChart={whaleChart}
+            />
+
+            <section className="grid gap-5 lg:grid-cols-[1fr_380px]">
               <Panel>
-                <SectionTitle eyebrow="Signals" title="AI signal board" />
+                <SectionHeading label="Signals" title="AI signal board" />
                 {snapshot?.signals.length ? (
-                  <div className="space-y-3">
+                  <div className="divide-y divide-foreground/10">
                     {snapshot.signals.map((signal) => (
                       <button
                         key={signal.id}
                         type="button"
                         onClick={() => setSelectedAsset(signal.asset)}
                         className={cn(
-                          "w-full border p-5 text-left transition-all hover:border-foreground/30 hover:bg-foreground/[0.03]",
-                          selectedSignal?.asset === signal.asset ? "border-[#eca8d6]/50 bg-[#eca8d6]/5" : "border-foreground/10"
+                          "grid w-full gap-3 py-4 text-left md:grid-cols-[120px_120px_1fr_90px]",
+                          selectedSignal?.asset === signal.asset && "text-[#eca8d6]"
                         )}
                       >
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                          <div>
-                            <div className="text-xs font-mono text-muted-foreground">{signal.asset}</div>
-                            <div className="mt-2 font-display text-3xl">
-                              <SignalTone signal={signal} />
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-display text-3xl">{signal.confidence}%</div>
-                            <Badge variant="outline" className="mt-2 border-foreground/10 font-mono uppercase">
-                              {signal.risk} risk
-                            </Badge>
-                          </div>
-                        </div>
-                        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{signal.thesis}</p>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {signal.drivers.map((driver) => (
-                            <span key={driver} className="border border-foreground/10 px-2 py-1 text-xs text-muted-foreground">
-                              {driver}
-                            </span>
-                          ))}
-                        </div>
+                        <span className="font-display text-2xl">{signal.asset}</span>
+                        <span className="font-mono text-sm"><SignalTone signal={signal} /></span>
+                        <span className="text-sm text-muted-foreground">{signal.thesis}</span>
+                        <Badge variant="outline" className="w-fit border-foreground/10 font-mono">{signal.confidence}%</Badge>
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <EmptyBlock title="No live signals yet" detail="Signals appear after SoSoValue market snapshots load." />
+                  <EmptyState text="No live signals returned by the current SoSoValue and SoDEX refresh." />
                 )}
               </Panel>
 
               <Panel>
-                <SectionTitle eyebrow="Execution" title="SoDEX intent" />
-                <div className="space-y-5">
+                <SectionHeading label="Execution" title="SoDEX intent" />
+                <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="mb-2 block text-xs font-mono text-muted-foreground">Notional USD</label>
                       <Input value={notionalUsd} onChange={(event) => setNotionalUsd(event.target.value)} inputMode="decimal" />
                     </div>
                     <div>
-                      <label className="mb-2 block text-xs font-mono text-muted-foreground">SoDEX account ID</label>
-                      <Input value={accountId} onChange={(event) => setAccountId(event.target.value)} inputMode="numeric" placeholder="env or account" />
+                      <label className="mb-2 block text-xs font-mono text-muted-foreground">Account ID</label>
+                      <Input value={accountId} onChange={(event) => setAccountId(event.target.value)} inputMode="numeric" placeholder="optional" />
                     </div>
                   </div>
-                  <div className="border border-foreground/10 p-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-sm text-muted-foreground">Selected setup</span>
-                      <span className="font-mono text-sm">{selectedSignal?.asset ?? "n/a"}</span>
+                  <div className="space-y-2 border border-foreground/10 p-4 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">Asset</span>
+                      <span className="font-mono">{selectedSignal?.asset ?? "unavailable"}</span>
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-4">
-                      <span className="text-sm text-muted-foreground">Live price</span>
-                      <span className="font-mono text-sm">{money(selectedMarket?.price)}</span>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">Price</span>
+                      <span className="font-mono">{money(selectedMarket?.price)}</span>
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-4">
-                      <span className="text-sm text-muted-foreground">Route</span>
-                      <span className="font-mono text-sm">{snapshot?.sodex?.symbol ?? "n/a"}</span>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">Route</span>
+                      <span className="font-mono">{snapshot?.sodex?.symbol ?? "unavailable"}</span>
                     </div>
                   </div>
                   <Button
@@ -585,115 +657,91 @@ export function DashboardClient() {
               </Panel>
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <section className="grid gap-5 lg:grid-cols-2">
               <Panel>
-                <SectionTitle eyebrow="Markets" title="SoSoValue tape" />
+                <SectionHeading label="Markets" title="SoSoValue assets" />
                 {snapshot?.assets.length ? (
-                  <div className="space-y-3">
+                  <div className="divide-y divide-foreground/10">
                     {snapshot.assets.map((asset) => (
-                      <div key={asset.symbol} className="grid grid-cols-[0.6fr_1fr_1fr] items-center gap-4 border-b border-foreground/10 py-4 last:border-b-0">
+                      <div key={asset.symbol} className="grid grid-cols-[80px_1fr_100px] items-center gap-4 py-3">
                         <div>
                           <div className="font-medium">{asset.symbol}</div>
                           <div className="text-xs text-muted-foreground">{asset.name}</div>
                         </div>
                         <div className="text-right font-mono text-sm">{money(asset.price)}</div>
-                        <div className={cn("text-right font-mono text-sm", asset.change24h >= 0 ? "text-[#eca8d6]" : "text-red-300")}>
-                          {pct(asset.change24h)}
-                        </div>
+                        <div className={cn("text-right font-mono text-sm", asset.change24h >= 0 ? "text-[#eca8d6]" : "text-red-300")}>{pct(asset.change24h)}</div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <EmptyBlock title="No market snapshots" detail="SoSoValue did not return asset data for this refresh." />
+                  <EmptyState text="SoSoValue did not return live asset snapshots for this refresh." />
                 )}
               </Panel>
 
               <Panel>
-                <SectionTitle eyebrow="ETF Flow" title="Institutional pressure" />
+                <SectionHeading label="ETF flow" title="Institutional pressure" />
                 {snapshot?.etfFlows.length ? (
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {snapshot.etfFlows.map((flow) => (
-                      <div key={flow.symbol} className="border border-foreground/10 p-5">
-                        <div className="mb-4 flex items-center justify-between gap-4">
-                          <span className="font-display text-3xl">{flow.symbol}</span>
+                      <div key={flow.symbol} className="border border-foreground/10 p-4">
+                        <div className="mb-3 flex items-center justify-between gap-4">
+                          <span className="font-display text-2xl">{flow.symbol}</span>
                           <span className="font-mono text-xs text-muted-foreground">{flow.latestDate}</span>
                         </div>
-                        <div className={cn("font-display text-4xl", flow.netInflow >= 0 ? "text-[#eca8d6]" : "text-red-300")}>
-                          {money(flow.netInflow)}
-                        </div>
-                        <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-muted-foreground">
-                          <div>
-                            <span className="block text-xs">Cumulative</span>
-                            {compact(flow.cumulativeInflow)}
-                          </div>
-                          <div>
-                            <span className="block text-xs">Assets</span>
-                            {compact(flow.totalAssets)}
-                          </div>
-                        </div>
+                        <div className={cn("font-display text-3xl", flow.netInflow >= 0 ? "text-[#eca8d6]" : "text-red-300")}>{money(flow.netInflow)}</div>
+                        <div className="mt-3 text-xs text-muted-foreground">Assets {compact(flow.totalAssets)} / cumulative {compact(flow.cumulativeInflow)}</div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <EmptyBlock title="No ETF flow" detail="SoSoValue ETF flow did not return data for this refresh." />
+                  <EmptyState text="SoSoValue did not return live ETF flow for this refresh." />
                 )}
               </Panel>
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <section className="grid gap-5 lg:grid-cols-2">
               <Panel>
-                <SectionTitle eyebrow="SoDEX Prints" title="Whale activity" />
+                <SectionHeading label="SoDEX" title="Whale prints" />
                 {snapshot?.whaleEvents.length ? (
-                  <div className="space-y-4">
+                  <div className="divide-y divide-foreground/10">
                     {snapshot.whaleEvents.map((event) => (
-                      <div key={event.id} className="border border-foreground/10 p-5">
-                        <div className="mb-3 flex items-start justify-between gap-4">
+                      <div key={event.id} className="py-4">
+                        <div className="mb-2 flex items-start justify-between gap-4">
                           <div>
-                            <div className="font-display text-3xl">{event.asset}</div>
+                            <div className="font-display text-2xl">{event.asset}</div>
                             <div className="text-xs font-mono text-muted-foreground">{event.direction}</div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-display text-3xl">{money(event.notionalUsd)}</div>
-                            <div className="text-xs text-muted-foreground">{event.confidence}% confidence</div>
-                          </div>
+                          <div className="text-right font-mono text-sm">{money(event.notionalUsd)}</div>
                         </div>
                         <p className="text-sm leading-relaxed text-muted-foreground">{event.summary}</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <EmptyBlock title="No large prints in this poll" detail="The live SoDEX trade tape returned no whale-sized events for the selected route." />
+                  <EmptyState text="The live SoDEX trade tape returned no whale-sized prints for this route." />
                 )}
               </Panel>
 
               <Panel>
-                <SectionTitle eyebrow="News" title="SoSoValue hot feed" />
+                <SectionHeading label="News" title="SoSoValue hot feed" />
                 {snapshot?.news.length ? (
-                  <div className="space-y-3">
+                  <div className="divide-y divide-foreground/10">
                     {snapshot.news.slice(0, 8).map((item) => (
-                      <a
-                        key={item.id}
-                        href={item.sourceUrl ?? "#"}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="group flex items-start justify-between gap-4 border-b border-foreground/10 py-4 last:border-b-0"
-                      >
-                        <span className="text-sm leading-relaxed text-muted-foreground transition-colors group-hover:text-foreground">
-                          {item.title}
-                        </span>
+                      <a key={item.id} href={item.sourceUrl ?? "#"} target="_blank" rel="noreferrer" className="group flex items-start justify-between gap-4 py-3">
+                        <span className="text-sm leading-relaxed text-muted-foreground transition-colors group-hover:text-foreground">{item.title}</span>
                         <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
                       </a>
                     ))}
                   </div>
                 ) : (
-                  <EmptyBlock title="No hot news" detail="SoSoValue news did not return data for this refresh." />
+                  <EmptyState text="SoSoValue did not return live hot news for this refresh." />
                 )}
               </Panel>
             </section>
 
             <Panel>
-              <SectionTitle eyebrow="Readiness" title="Wave 1 source checks" />
-              <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+              <SectionHeading label="Readiness" title="Live source checks" />
+              <div className="flex flex-wrap gap-2">
                 <StatusPill ok={Boolean(snapshot?.config.sosovalueApi)} label="SoSoValue key" />
                 <StatusPill ok={Boolean(snapshot?.config.openaiApi)} label="OpenAI key" />
                 <StatusPill ok={Boolean(snapshot?.config.mongodb)} label="MongoDB URI" />
@@ -702,7 +750,7 @@ export function DashboardClient() {
                 <StatusPill ok={Boolean(snapshot?.chain?.isLive)} label="ValueChain RPC" />
               </div>
               {snapshot?.sourceNotes.length ? (
-                <div className="mt-6 space-y-2 text-sm text-muted-foreground">
+                <div className="mt-5 space-y-2 text-sm text-muted-foreground">
                   {snapshot.sourceNotes.map((note) => (
                     <div key={note} className="flex gap-2">
                       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />

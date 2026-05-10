@@ -1,5 +1,5 @@
 import { generateAiBrief } from "@/lib/ai";
-import { persistSnapshot } from "@/lib/db";
+import { getDashboardHistory, persistSnapshot } from "@/lib/db";
 import { buildSignals } from "@/lib/signal-engine";
 import {
   getLiveSodexMarket,
@@ -8,7 +8,7 @@ import {
   getValueChainStatus,
 } from "@/lib/sodex";
 import { getSosoEtfFlows, getSosoHotNews, getSosoMarketAssets } from "@/lib/sosovalue";
-import type { DashboardSnapshot, RuntimeConfigStatus } from "@/lib/whalemind-types";
+import type { DashboardHistoryPoint, DashboardSnapshot, RuntimeConfigStatus } from "@/lib/whalemind-types";
 
 function reason(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -27,9 +27,45 @@ function runtimeConfig(): RuntimeConfigStatus {
   };
 }
 
+function currentHistoryPoint(snapshot: Omit<DashboardSnapshot, "history" | "config">): DashboardHistoryPoint | undefined {
+  if (snapshot.assets.length === 0 && !snapshot.sodex && !snapshot.chain) return undefined;
+
+  return {
+    generatedAt: snapshot.generatedAt,
+    assets: snapshot.assets.map((asset) => ({
+      symbol: asset.symbol,
+      price: asset.price,
+      change24h: asset.change24h,
+      volume24h: asset.volume24h,
+      marketCap: asset.marketCap,
+    })),
+    signals: snapshot.signals.map((signal) => ({
+      asset: signal.asset,
+      action: signal.action,
+      confidence: signal.confidence,
+    })),
+    sodex: snapshot.sodex
+      ? {
+          symbol: snapshot.sodex.symbol,
+          lastPrice: snapshot.sodex.lastPrice,
+          priceChange24h: snapshot.sodex.priceChange24h,
+          volume24h: snapshot.sodex.volume24h,
+          bid: snapshot.sodex.bid,
+          ask: snapshot.sodex.ask,
+        }
+      : undefined,
+    chain: snapshot.chain
+      ? {
+          blockNumber: snapshot.chain.blockNumber,
+        }
+      : undefined,
+  };
+}
+
 export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
   const generatedAt = new Date().toISOString();
   const sourceNotes: string[] = [];
+  const config = runtimeConfig();
 
   const [assetsResult, flowsResult, newsResult, marketResult, chainResult, whaleResult] = await Promise.allSettled([
     getSosoMarketAssets(),
@@ -65,10 +101,10 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
       ? await generateAiBrief({ assets, etfFlows, news, whaleEvents, signals })
       : "Live market sources are not ready yet.";
 
-  const snapshot: DashboardSnapshot = {
+  const baseSnapshot: Omit<DashboardSnapshot, "history" | "config"> = {
     generatedAt,
     state: sourceNotes.length === 0 && chain?.isLive ? "live" : "partial",
-    sourceNotes: sourceNotes.length > 0 ? sourceNotes : ["All live dashboard sources responded."],
+    sourceNotes,
     assets,
     etfFlows,
     news,
@@ -77,18 +113,29 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
     sodex,
     chain,
     aiBrief,
-    config: runtimeConfig(),
   };
 
   if (assets.length > 0 && sodex && chain) {
-    await persistSnapshot({
-      ...snapshot,
-      state: snapshot.state,
+    const result = await persistSnapshot({
+      ...baseSnapshot,
+      state: baseSnapshot.state,
       sodex,
       chain,
       aiBrief,
     });
+    if (!result.stored && config.mongodb) {
+      sourceNotes.push(`MongoDB history not stored: ${result.reason}`);
+    }
   }
 
-  return snapshot;
+  const currentPoint = currentHistoryPoint(baseSnapshot);
+  const storedHistory = await getDashboardHistory();
+  const history = storedHistory.length > 0 ? storedHistory : currentPoint ? [currentPoint] : [];
+
+  return {
+    ...baseSnapshot,
+    sourceNotes: sourceNotes.length > 0 ? sourceNotes : ["All live dashboard sources responded."],
+    history,
+    config,
+  };
 }
