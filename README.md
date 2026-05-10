@@ -1,16 +1,16 @@
-<p align="center">
-  <img src="./public/images/whale.png" alt="WhaleMind AI whale logo" width="180" />
-</p>
 
-<h1 align="center">WhaleMind AI</h1>
 
-<p align="center">
-  AI-powered on-chain trading intelligence for SoSoValue research, SoDEX execution, and ValueChain wallet confirmation.
-</p>
+# WhaleMind AI
 
-<p align="center">
-  <strong>Wave 1 complete:</strong> live intelligence reads, guarded SoDEX order intents, wallet-ready ValueChain flow, and a Waves 2-3 product roadmap.
-</p>
+
+
+demo -[https://youtu.be/lFq0Smz6MMU](https://youtu.be/lFq0Smz6MMU)
+
+url -
+
+AI-powered on-chain trading intelligence for SoSoValue research, SoDEX execution, and ValueChain wallet confirmation.
+
+**Wave 1 complete:** live intelligence reads, guarded SoDEX order intents, wallet-ready ValueChain flow, and a Waves 2-3 product roadmap.
 
 AI-powered on-chain trading intelligence for the SoSoValue Buildathon.
 
