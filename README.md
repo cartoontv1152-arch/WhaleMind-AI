@@ -41,12 +41,7 @@ Completed in Wave 1:
 - Added local verification steps for type checks, production builds, API smoke tests, and browser inspection.
 - Added a separate `/dashboard` app surface with wallet-based login, live market charts, SoDEX intent creation, Mongo-backed signal history, and readiness checks.
 
-Wave 1 remaining before demo day:
-
-- Paste the final SoDEX account ID into `SODEX_DEFAULT_ACCOUNT_ID` when the organizer account is available.
-- Paste the exchange-specific EIP-712 verifying contract into `SODEX_EIP712_VERIFYING_CONTRACT` when provided.
-- Add a real `OPENAI_API_KEY` only if you want dynamic AI text instead of the deterministic analyst brief.
-- Add `MONGODB_URI` only if you want persisted signal history during judging.
+ 
 
 ## Buildathon Fit
 
