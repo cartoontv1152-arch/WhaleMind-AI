@@ -83,6 +83,30 @@ export interface WhaleMindSnapshot {
   aiBrief: string;
 }
 
+export interface RuntimeConfigStatus {
+  sosovalueApi: boolean;
+  openaiApi: boolean;
+  mongodb: boolean;
+  sodexAccountId: boolean;
+  sodexVerifyingContract: boolean;
+  sodexLiveExecution: boolean;
+}
+
+export interface DashboardSnapshot {
+  generatedAt: string;
+  state: Exclude<DataSourceState, "fallback">;
+  sourceNotes: string[];
+  assets: MarketAsset[];
+  etfFlows: EtfFlow[];
+  news: NewsItem[];
+  whaleEvents: WhaleEvent[];
+  signals: AiSignal[];
+  sodex?: SodexMarket;
+  chain?: ChainStatus;
+  aiBrief?: string;
+  config: RuntimeConfigStatus;
+}
+
 export interface OrderIntentInput {
   walletAddress: string;
   accountId?: number;
