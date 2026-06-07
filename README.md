@@ -60,8 +60,6 @@ Completed in Wave 2:
 - Added webhook response validation so Telegram/Discord alerts are only marked delivered after a successful provider response.
 - Sanitized public API error responses so auth, beta-state, dashboard, intelligence, SoDEX, and Mongo persistence failures do not expose infrastructure details.
 
-##  
-
 ## Tech Stack
 
 - Frontend: Next.js, React, TypeScript, Tailwind CSS, shadcn/ui components
@@ -125,8 +123,6 @@ Wave 2 now turns the prototype into a private beta:
 - Telegram and Discord delivery hooks are wired through server-side env vars; missing webhook config and failed provider responses are shown in readiness/results.
 - Portfolio-aware beta state is available through manual holdings while full SoDEX account-state integration remains dependent on account IDs and balances.
 - The `/api/user-state` route now rejects unsigned writes and cross-wallet session mismatches.
-
- 
 
 ## Wave 3 Roadmap
 
