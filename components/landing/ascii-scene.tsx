@@ -8,6 +8,9 @@ interface Point3D {
   z: number;
 }
 
+
+
+
 const ASCII_CHARS = " .:-=+*#%@";
 
 export function AsciiScene() {
