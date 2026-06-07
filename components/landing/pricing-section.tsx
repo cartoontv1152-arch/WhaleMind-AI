@@ -152,7 +152,7 @@ export function PricingSection() {
                   <ul className="space-y-3 mb-10">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-3">
-                        <Check className="w-4 h-4 text-[#eca8d6] mt-0.5 shrink-0" />
+                        <Check className="w-4 h-4 text-whale-accent mt-0.5 shrink-0" />
                         <span className="text-sm text-muted-foreground">{feature}</span>
                       </li>
                     ))}
@@ -181,15 +181,15 @@ export function PricingSection() {
         }`}>
           <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-[#eca8d6]" />
+              <Check className="w-4 h-4 text-whale-accent" />
               Wallet-gated execution
             </span>
             <span className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-[#eca8d6]" />
+              <Check className="w-4 h-4 text-whale-accent" />
               SoSoValue intelligence
             </span>
             <span className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-[#eca8d6]" />
+              <Check className="w-4 h-4 text-whale-accent" />
               SoDEX order intents
             </span>
           </div>

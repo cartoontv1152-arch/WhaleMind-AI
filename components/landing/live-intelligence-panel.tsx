@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, Link2, Loader2, Wallet } from "lucide-react";
+import { ArrowRight, Link2, Loader2, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { VALUECHAIN_MAINNET } from "@/lib/valuechain";
-import type { OrderIntent, WhaleMindSnapshot } from "@/lib/whalemind-types";
+import type { WhaleMindSnapshot } from "@/lib/whalemind-types";
 
 type EthereumProvider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -66,7 +66,6 @@ export function LiveIntelligencePanel() {
   const [snapshot, setSnapshot] = useState<WhaleMindSnapshot | null>(null);
   const [wallet, setWallet] = useState<string>();
   const [status, setStatus] = useState("Syncing WhaleMind");
-  const [intent, setIntent] = useState<OrderIntent | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
   useEffect(() => {
@@ -98,8 +97,8 @@ export function LiveIntelligencePanel() {
 
   const signalTone = useMemo(() => {
     if (!topSignal) return "text-muted-foreground";
-    if (topSignal.action === "BUY") return "text-[#eca8d6]";
-    if (topSignal.action === "SELL") return "text-red-300";
+    if (topSignal.action === "BUY") return "text-whale-accent";
+    if (topSignal.action === "SELL") return "text-whale-negative";
     return "text-white";
   }, [topSignal]);
 
@@ -123,44 +122,13 @@ export function LiveIntelligencePanel() {
     }
   };
 
-  const simulateOrder = async () => {
-    if (!wallet) {
-      setStatus("Connect wallet before creating a SoDEX intent");
-      return;
-    }
-
-    setIsBusy(true);
-    setIntent(null);
-    try {
-      const response = await fetch("/api/sodex/order-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          walletAddress: wallet,
-          symbol: snapshot?.sodex.symbol ?? "vBTC_vUSDC",
-          side: topSignal?.action === "SELL" ? "SELL" : "BUY",
-          notionalUsd: 250,
-          orderType: "MARKET",
-        }),
-      });
-      const data = (await response.json()) as Partial<OrderIntent> & { detail?: string };
-      if (!response.ok || data.detail) throw new Error(data.detail ?? "Simulation failed");
-      setIntent(data as OrderIntent);
-      setStatus("SoDEX EIP-712 order intent generated");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Order simulation failed");
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <div className="lg:col-span-1 bg-foreground/[0.02] border border-foreground/10 p-8 lg:p-10 transition-all duration-700">
         <div className="flex items-center justify-between gap-4 mb-8">
           <span className="text-xs font-mono text-muted-foreground">AI signal engine</span>
-          <span className="flex items-center gap-2 text-xs font-mono text-[#eca8d6]">
-            <span className="w-2 h-2 rounded-full bg-[#eca8d6] animate-pulse" />
+          <span className="flex items-center gap-2 text-xs font-mono text-whale-accent">
+            <span className="w-2 h-2 rounded-full bg-whale-accent animate-pulse" />
             {snapshot?.state ?? "sync"}
           </span>
         </div>
@@ -182,7 +150,7 @@ export function LiveIntelligencePanel() {
           <div className="text-base text-foreground mb-6">{topWhale?.summary ?? "Scanning large prints"}</div>
           <div className="h-1 w-full bg-foreground/10 overflow-hidden">
             <div
-              className="h-full bg-[#eca8d6] transition-all duration-500"
+              className="h-full bg-whale-accent transition-all duration-500"
               style={{ width: `${topWhale?.confidence ?? 20}%` }}
             />
           </div>
@@ -230,19 +198,19 @@ export function LiveIntelligencePanel() {
               {shortAddress(wallet)}
             </Button>
             <Button
-              type="button"
-              onClick={simulateOrder}
-              disabled={isBusy}
+              asChild
               variant="outline"
               className="rounded-full border-foreground/20 hover:bg-foreground/5"
             >
-              <Link2 className="w-4 h-4 mr-2" />
-              Simulate SoDEX
+              <a href="/dashboard">
+                <Link2 className="w-4 h-4 mr-2" />
+                Open dashboard
+              </a>
             </Button>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-            {intent ? <Check className="w-3.5 h-3.5 text-[#eca8d6]" /> : <ArrowRight className="w-3.5 h-3.5" />}
-            <span>{intent ? `Intent ${intent.clOrdID}` : status}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+            <span>{status}</span>
           </div>
         </div>
       </div>

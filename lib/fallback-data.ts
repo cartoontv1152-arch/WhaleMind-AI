@@ -182,6 +182,7 @@ export function buildFallbackSnapshot(reason = "Live providers are not configure
     sourceNotes: [reason],
     assets: fallbackAssets,
     etfFlows: fallbackEtfFlows,
+    indices: [],
     news: fallbackNews,
     whaleEvents: buildFallbackWhaleEvents(generatedAt),
     signals: fallbackSignals,

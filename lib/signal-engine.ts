@@ -2,7 +2,7 @@ import { generateAiBrief } from "@/lib/ai";
 import { buildFallbackSnapshot, buildFallbackWhaleEvents, fallbackAssets, fallbackEtfFlows, fallbackNews, fallbackSignals } from "@/lib/fallback-data";
 import { persistSnapshot } from "@/lib/db";
 import { getSodexMarket, getSodexWhaleEvents, getValueChainStatus } from "@/lib/sodex";
-import { getSosoEtfFlows, getSosoHotNews, getSosoMarketAssets } from "@/lib/sosovalue";
+import { getSosoEtfFlows, getSosoHotNews, getSosoIndices, getSosoMarketAssets } from "@/lib/sosovalue";
 import type { AiSignal, EtfFlow, MarketAsset, WhaleEvent, WhaleMindSnapshot } from "@/lib/whalemind-types";
 
 function clamp(value: number, min: number, max: number) {
@@ -56,13 +56,14 @@ export function buildSignals(assets: MarketAsset[], flows: EtfFlow[], whales: Wh
   });
 }
 
-export async function getWhaleMindSnapshot(): Promise<WhaleMindSnapshot> {
+export async function getWhaleMindSnapshot({ persist = false }: { persist?: boolean } = {}): Promise<WhaleMindSnapshot> {
   const generatedAt = new Date().toISOString();
   const sourceNotes: string[] = [];
 
-  const [assetsResult, flowsResult, newsResult, sodex, chain, sodexWhales] = await Promise.allSettled([
+  const [assetsResult, flowsResult, indicesResult, newsResult, sodex, chain, sodexWhales] = await Promise.allSettled([
     getSosoMarketAssets(),
     getSosoEtfFlows(),
+    getSosoIndices(),
     getSosoHotNews(),
     getSodexMarket(),
     getValueChainStatus(),
@@ -71,27 +72,30 @@ export async function getWhaleMindSnapshot(): Promise<WhaleMindSnapshot> {
 
   const assets =
     assetsResult.status === "fulfilled" && assetsResult.value.length > 0 ? assetsResult.value : fallbackAssets;
-  if (assetsResult.status === "rejected") sourceNotes.push(assetsResult.reason?.message ?? "SoSoValue markets fallback");
+  if (assetsResult.status === "rejected") sourceNotes.push("SoSoValue markets fallback");
 
   const etfFlows =
     flowsResult.status === "fulfilled" && flowsResult.value.length > 0 ? flowsResult.value : fallbackEtfFlows;
-  if (flowsResult.status === "rejected") sourceNotes.push(flowsResult.reason?.message ?? "SoSoValue ETF fallback");
+  if (flowsResult.status === "rejected") sourceNotes.push("SoSoValue ETF fallback");
+
+  const indices = indicesResult.status === "fulfilled" ? indicesResult.value : [];
+  if (indicesResult.status === "rejected") sourceNotes.push("SoSoValue Index fallback");
 
   const news = newsResult.status === "fulfilled" && newsResult.value.length > 0 ? newsResult.value : fallbackNews;
-  if (newsResult.status === "rejected") sourceNotes.push(newsResult.reason?.message ?? "SoSoValue news fallback");
+  if (newsResult.status === "rejected") sourceNotes.push("SoSoValue news fallback");
 
   const liveSodex = sodex.status === "fulfilled" ? sodex.value : undefined;
-  if (sodex.status === "rejected") sourceNotes.push(sodex.reason?.message ?? "SoDEX market fallback");
+  if (sodex.status === "rejected") sourceNotes.push("SoDEX market fallback");
 
   const liveChain = chain.status === "fulfilled" ? chain.value : undefined;
-  if (chain.status === "rejected") sourceNotes.push(chain.reason?.message ?? "ValueChain fallback");
-  if (liveChain && !liveChain.isLive && liveChain.error) sourceNotes.push(liveChain.error);
+  if (chain.status === "rejected") sourceNotes.push("ValueChain fallback");
+  if (liveChain && !liveChain.isLive) sourceNotes.push("ValueChain RPC did not confirm live status for this refresh.");
 
   const whales =
     sodexWhales.status === "fulfilled" && sodexWhales.value.length > 0
       ? sodexWhales.value
       : buildFallbackWhaleEvents(generatedAt);
-  if (sodexWhales.status === "rejected") sourceNotes.push(sodexWhales.reason?.message ?? "SoDEX whale fallback");
+  if (sodexWhales.status === "rejected") sourceNotes.push("SoDEX whale fallback");
 
   const signals = buildSignals(assets, etfFlows, whales);
   const aiBrief = await generateAiBrief({ assets, etfFlows, news, whaleEvents: whales, signals });
@@ -103,6 +107,7 @@ export async function getWhaleMindSnapshot(): Promise<WhaleMindSnapshot> {
     sourceNotes: sourceNotes.length > 0 ? sourceNotes : ["Live SoSoValue, SoDEX, and ValueChain reads completed."],
     assets,
     etfFlows,
+    indices,
     news,
     whaleEvents: whales,
     signals: signals.length > 0 ? signals : fallbackSignals,
@@ -111,6 +116,9 @@ export async function getWhaleMindSnapshot(): Promise<WhaleMindSnapshot> {
     aiBrief,
   };
 
-  await persistSnapshot(snapshot);
+  if (persist) {
+    await persistSnapshot(snapshot);
+  }
+
   return snapshot;
 }

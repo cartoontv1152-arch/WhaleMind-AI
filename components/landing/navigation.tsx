@@ -135,8 +135,9 @@ export function Navigation() {
               variant="outline" 
               className="flex-1 rounded-full h-14 text-base"
               onClick={() => setIsMobileMenuOpen(false)}
+              asChild
             >
-              Dashboard
+              <a href="/dashboard">Dashboard</a>
             </Button>
             <Button 
               className="flex-1 bg-foreground text-background rounded-full h-14 text-base"

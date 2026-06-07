@@ -61,30 +61,9 @@ function BlurWord({ word, trigger }: { word: string; trigger: number }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trigger]);
 
-  // gradient colours cycling across letter positions
-  const gradientColors = ["#eca8d6", "#a78bfa", "#67e8f9", "#fbbf24", "#eca8d6"];
-
   return (
     <>
       {letters.map((char, i) => {
-        const colorIndex = (i / Math.max(letters.length - 1, 1)) * (gradientColors.length - 1);
-        const lower = Math.floor(colorIndex);
-        const upper = Math.min(lower + 1, gradientColors.length - 1);
-        const t = colorIndex - lower;
-
-        // lerp hex colours
-        const hex2rgb = (hex: string) => {
-          const r = parseInt(hex.slice(1, 3), 16);
-          const g = parseInt(hex.slice(3, 5), 16);
-          const b = parseInt(hex.slice(5, 7), 16);
-          return [r, g, b];
-        };
-        const [r1, g1, b1] = hex2rgb(gradientColors[lower]);
-        const [r2, g2, b2] = hex2rgb(gradientColors[upper]);
-        const r = Math.round(r1 + (r2 - r1) * t);
-        const g = Math.round(g1 + (g2 - g1) * t);
-        const b = Math.round(b1 + (b2 - b1) * t);
-
         return (
           <span
             key={i}
@@ -92,7 +71,7 @@ function BlurWord({ word, trigger }: { word: string; trigger: number }) {
               display: "inline-block",
               opacity: letterStates[i]?.opacity ?? 0,
               filter: `blur(${letterStates[i]?.blur ?? 20}px)`,
-              color: showGradient ? `rgb(${r},${g},${b})` : "white",
+              color: showGradient ? "var(--whale-accent)" : "white",
               transition: "color 0.4s ease",
             }}
           >

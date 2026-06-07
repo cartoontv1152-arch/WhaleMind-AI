@@ -1,4 +1,5 @@
-import { isAddress, JsonRpcProvider, keccak256, toUtf8Bytes } from "ethers";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { getAddress, isAddress, JsonRpcProvider, keccak256, toUtf8Bytes, verifyTypedData } from "ethers";
 import { z } from "zod";
 
 import { fallbackSodexMarket } from "@/lib/fallback-data";
@@ -11,7 +12,11 @@ const SODEX_DEFAULT_ACCOUNT_ID =
   process.env.SODEX_DEFAULT_ACCOUNT_ID !== undefined && process.env.SODEX_DEFAULT_ACCOUNT_ID !== ""
     ? Number(process.env.SODEX_DEFAULT_ACCOUNT_ID)
     : undefined;
-const SODEX_EIP712_VERIFYING_CONTRACT = process.env.SODEX_EIP712_VERIFYING_CONTRACT;
+const DEFAULT_EIP712_VERIFYING_CONTRACT = "0x0000000000000000000000000000000000000000";
+const SODEX_EIP712_VERIFYING_CONTRACT =
+  process.env.SODEX_EIP712_VERIFYING_CONTRACT || DEFAULT_EIP712_VERIFYING_CONTRACT;
+const SODEX_API_KEY_NAME = process.env.SODEX_API_KEY_NAME;
+const SODEX_REQUEST_TIMEOUT_MS = 8000;
 
 const SPOT_ENDPOINT =
   process.env.SODEX_SPOT_ENDPOINT ??
@@ -20,6 +25,9 @@ const SPOT_ENDPOINT =
     : "https://mainnet-gw.sodex.dev/api/v1/spot");
 
 const CHAIN = SODEX_ENV === "testnet" ? VALUECHAIN_TESTNET : VALUECHAIN_MAINNET;
+const ORDER_ENDPOINT = `${SPOT_ENDPOINT}/trade/orders/batch`;
+
+let developmentIntentSecret: string | undefined;
 
 interface SodexResponse<T> {
   code: number;
@@ -33,9 +41,18 @@ type LooseBookTicker = Record<string, unknown>;
 type LooseSymbol = Record<string, unknown>;
 type LooseTrade = Record<string, unknown>;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
 const orderIntentSchema = z.object({
   walletAddress: z.string().refine((value) => isAddress(value), "Valid EVM wallet address required"),
   accountId: z.coerce.number().int().nonnegative().optional(),
+  apiKeyName: z
+    .string()
+    .trim()
+    .regex(/^[0-9a-zA-Z_-]{1,36}$/)
+    .optional(),
   symbol: z.string().min(3).optional().default(DEFAULT_SYMBOL),
   side: z.enum(["BUY", "SELL"]),
   notionalUsd: z.coerce.number().positive().max(1_000_000),
@@ -46,16 +63,62 @@ const orderIntentSchema = z.object({
 export function getSodexRuntimeConfig() {
   const hasEnvAccount = SODEX_DEFAULT_ACCOUNT_ID !== undefined && Number.isFinite(SODEX_DEFAULT_ACCOUNT_ID);
   const hasContract = Boolean(SODEX_EIP712_VERIFYING_CONTRACT && isAddress(SODEX_EIP712_VERIFYING_CONTRACT));
-  const liveExecutionEnabled = process.env.SODEX_ENABLE_LIVE_EXECUTION === "true" && hasEnvAccount && hasContract;
+  const liveExecutionEnabled =
+    process.env.SODEX_ENABLE_LIVE_EXECUTION === "true" && hasEnvAccount && hasContract && !SODEX_API_KEY_NAME;
 
   return {
     environment: SODEX_ENV,
     defaultSymbol: DEFAULT_SYMBOL,
     spotEndpoint: SPOT_ENDPOINT,
     hasDefaultAccountId: hasEnvAccount,
+    hasApiKeyName: Boolean(SODEX_API_KEY_NAME),
     hasVerifyingContract: hasContract,
     liveExecutionEnabled,
   };
+}
+
+function getIntentProofSecret() {
+  if (process.env.WHALEMIND_SESSION_SECRET && process.env.WHALEMIND_SESSION_SECRET.length >= 32) {
+    return process.env.WHALEMIND_SESSION_SECRET;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("WHALEMIND_SESSION_SECRET must be set before SoDEX intents can be issued.");
+  }
+
+  developmentIntentSecret ??= randomBytes(32).toString("hex");
+  return developmentIntentSecret;
+}
+
+function stableIntentProofPayload(intent: Omit<OrderIntent, "serverProof">) {
+  return JSON.stringify({
+    clOrdID: intent.clOrdID,
+    endpoint: intent.endpoint,
+    method: intent.method,
+    walletAddress: getAddress(intent.walletAddress),
+    signingMode: intent.signingMode,
+    apiKeyName: intent.apiKeyName,
+    nonce: intent.nonce,
+    payloadHash: intent.payloadHash,
+    typedData: intent.typedData,
+    headersPreview: intent.headersPreview,
+    executionMode: intent.executionMode,
+  });
+}
+
+function signOrderIntent(intent: Omit<OrderIntent, "serverProof">) {
+  return createHmac("sha256", getIntentProofSecret()).update(stableIntentProofPayload(intent)).digest("base64url");
+}
+
+function proofMatches(received: string, expected: string) {
+  const receivedBuffer = Buffer.from(received);
+  const expectedBuffer = Buffer.from(expected);
+  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual(receivedBuffer, expectedBuffer);
+}
+
+function verifyOrderIntentProof(intent: OrderIntent) {
+  const { serverProof, ...unsignedIntent } = intent;
+  return proofMatches(serverProof, signOrderIntent(unsignedIntent));
 }
 
 function toNumber(value: unknown, fallback?: number) {
@@ -87,6 +150,7 @@ async function sodexGet<T>(path: string, query?: Record<string, string | number 
   const response = await fetch(makeSodexUrl(path, query), {
     headers: { Accept: "application/json" },
     next: { revalidate: 15 },
+    signal: AbortSignal.timeout(SODEX_REQUEST_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -218,27 +282,28 @@ export async function getSodexWhaleEvents(symbol = DEFAULT_SYMBOL): Promise<Whal
 }
 
 async function resolveSymbolId(symbol: string) {
-  try {
-    const symbols = await sodexGet<LooseSymbol[]>("/markets/symbols", { symbol });
-    const match = symbols.find((item) => String(item.symbol ?? item.name ?? "") === symbol) ?? symbols[0];
-    const id = pickNumber(match ?? {}, ["symbolID", "symbolId", "id"], 1);
-    return id ?? 1;
-  } catch {
-    return 1;
-  }
+  const symbols = await sodexGet<LooseSymbol[]>("/markets/symbols", { symbol });
+  const match = symbols.find((item) => String(item.symbol ?? item.name ?? "") === symbol);
+  const id = match ? pickNumber(match, ["symbolID", "symbolId", "id"]) : undefined;
+  if (id === undefined) throw new Error(`SoDEX symbol ${symbol} could not be resolved.`);
+  return id;
 }
 
 export async function createSodexOrderIntent(input: OrderIntentInput): Promise<OrderIntent> {
   const parsed = orderIntentSchema.parse(input);
-  const symbolId = await resolveSymbolId(parsed.symbol);
+  const [symbolIdResult, marketResult] = await Promise.allSettled([
+    resolveSymbolId(parsed.symbol),
+    readSodexMarket(parsed.symbol).catch(() => undefined),
+  ]);
+  const symbolId = symbolIdResult.status === "fulfilled" ? symbolIdResult.value : undefined;
+  const market = marketResult.status === "fulfilled" ? marketResult.value : undefined;
   const resolvedAccountId = parsed.accountId ?? SODEX_DEFAULT_ACCOUNT_ID;
+  const apiKeyName = parsed.apiKeyName ?? SODEX_API_KEY_NAME;
   const hasAccountId = resolvedAccountId !== undefined && Number.isFinite(resolvedAccountId);
   const hasVerifyingContract = Boolean(
     SODEX_EIP712_VERIFYING_CONTRACT && isAddress(SODEX_EIP712_VERIFYING_CONTRACT)
   );
-  const verifyingContract = hasVerifyingContract
-    ? SODEX_EIP712_VERIFYING_CONTRACT!
-    : "0x0000000000000000000000000000000000000000";
+  const verifyingContract = hasVerifyingContract ? SODEX_EIP712_VERIFYING_CONTRACT : DEFAULT_EIP712_VERIFYING_CONTRACT;
   const clOrdID = `whalemind-${Date.now().toString(36)}`;
   const nonce = Date.now();
   const side = parsed.side === "BUY" ? 1 : 2;
@@ -259,23 +324,28 @@ export async function createSodexOrderIntent(input: OrderIntentInput): Promise<O
   } else if (parsed.side === "BUY") {
     order.funds = String(parsed.notionalUsd);
   } else {
-    order.quantity = String(parsed.notionalUsd);
+    const referencePrice = market?.lastPrice ?? parsed.limitPrice;
+    order.quantity = String(referencePrice ? Math.max(parsed.notionalUsd / referencePrice, 0.000001) : parsed.notionalUsd);
   }
 
   const payload = {
     type: "newOrder",
     params: {
       accountID: hasAccountId ? resolvedAccountId : 0,
-      symbolID: symbolId,
+      symbolID: symbolId ?? 0,
       orders: [order],
     },
   };
   const payloadHash = keccak256(toUtf8Bytes(JSON.stringify(payload)));
+  const canBrowserSignForLiveExecution = hasAccountId && symbolId !== undefined && hasVerifyingContract && !apiKeyName;
 
-  return {
+  const intentWithoutProof: Omit<OrderIntent, "serverProof"> = {
     clOrdID,
-    endpoint: `${SPOT_ENDPOINT}/trade/orders/batch`,
+    endpoint: ORDER_ENDPOINT,
     method: "POST",
+    walletAddress: getAddress(parsed.walletAddress),
+    signingMode: apiKeyName ? "registered-api-key" : "master-wallet",
+    apiKeyName,
     nonce,
     payload,
     payloadHash,
@@ -307,30 +377,129 @@ export async function createSodexOrderIntent(input: OrderIntentInput): Promise<O
     headersPreview: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      "X-API-Key": parsed.walletAddress,
+      ...(apiKeyName ? { "X-API-Key": apiKeyName } : {}),
       "X-API-Nonce": String(nonce),
     },
-    executionMode: hasAccountId && hasVerifyingContract ? "ready-for-signature" : "dry-run",
+    executionMode: canBrowserSignForLiveExecution ? "ready-for-signature" : "dry-run",
     warnings: [
       "This is an EIP-712 order intent. Submit only after the wallet signs and live execution is enabled.",
+      apiKeyName
+        ? "Registered API-key mode is preview-only in WhaleMind: SoDEX requires the API key private key to sign trading actions, not the browser wallet."
+        : "No X-API-Key header is included; SoDEX will verify this as a master-wallet signed request.",
       "SoDEX requires the signature prefixed with 0x01 in X-API-Sign.",
+      ...(apiKeyName
+        ? ["Remove SODEX_API_KEY_NAME for browser-wallet master signing, or add a dedicated server/API-key signer before live execution."]
+        : []),
       ...(!hasAccountId
         ? ["SoDEX account ID is missing. Add SODEX_DEFAULT_ACCOUNT_ID or pass accountId from the connected account."]
+        : []),
+      ...(symbolId === undefined
+        ? [`SoDEX symbol ${parsed.symbol} could not be resolved. Intent stays dry-run until market metadata is live.`]
         : []),
       ...(!hasVerifyingContract
         ? ["SoDEX EIP-712 verifying contract is missing. Add SODEX_EIP712_VERIFYING_CONTRACT before live signing."]
         : []),
     ],
   };
+
+  return {
+    ...intentWithoutProof,
+    serverProof: signOrderIntent(intentWithoutProof),
+  };
+}
+
+function readSodexOrderErrors(body: unknown) {
+  if (!isRecord(body)) return ["SoDEX returned an unreadable response."];
+
+  const errors: string[] = [];
+  const envelopeCode = toNumber(body.code);
+  if (envelopeCode !== undefined && envelopeCode !== 0) {
+    errors.push(String(body.error ?? `SoDEX API code ${envelopeCode}`));
+  }
+
+  const data = body.data;
+  if (Array.isArray(data)) {
+    data.forEach((item) => {
+      if (!isRecord(item)) return;
+      const itemCode = toNumber(item.code);
+      if (itemCode !== undefined && itemCode !== 0) {
+        const clOrdID = typeof item.clOrdID === "string" ? `${item.clOrdID}: ` : "";
+        errors.push(`${clOrdID}${String(item.error ?? `order code ${itemCode}`)}`);
+      }
+    });
+  }
+
+  return errors;
 }
 
 export async function executeSignedSodexOrder({
   intent,
   signature,
+  signerAddress,
+  confirmed,
 }: {
   intent: OrderIntent;
   signature: string;
+  signerAddress: string;
+  confirmed?: boolean;
 }) {
+  if (!confirmed) {
+    return {
+      dryRun: true,
+      message: "Signed submission requires explicit user approval.",
+      intent,
+    };
+  }
+
+  if (!verifyOrderIntentProof(intent)) {
+    throw new Error("SoDEX intent proof is invalid. Create a fresh order intent before signing.");
+  }
+
+  if (intent.endpoint !== ORDER_ENDPOINT || intent.method !== "POST") {
+    throw new Error("SoDEX intent endpoint is not valid for this deployment.");
+  }
+
+  if (intent.signingMode === "registered-api-key") {
+    throw new Error("Registered API-key order signing is not supported by the browser-wallet submit path.");
+  }
+
+  if (
+    !SODEX_EIP712_VERIFYING_CONTRACT ||
+    !isAddress(SODEX_EIP712_VERIFYING_CONTRACT) ||
+    intent.typedData.domain.verifyingContract.toLowerCase() !== SODEX_EIP712_VERIFYING_CONTRACT.toLowerCase()
+  ) {
+    throw new Error("SoDEX verifying contract changed or is not configured.");
+  }
+
+  const recomputedPayloadHash = keccak256(toUtf8Bytes(JSON.stringify(intent.payload)));
+  if (
+    recomputedPayloadHash !== intent.payloadHash ||
+    intent.typedData.message.payloadHash !== intent.payloadHash ||
+    intent.typedData.message.nonce !== intent.nonce ||
+    intent.headersPreview["X-API-Nonce"] !== String(intent.nonce)
+  ) {
+    throw new Error("SoDEX intent payload no longer matches the signed payload hash.");
+  }
+
+  if (intent.typedData.domain.name !== "spot" || intent.typedData.domain.version !== "1" || intent.typedData.domain.chainId !== CHAIN.chainId) {
+    throw new Error("SoDEX intent typed-data domain does not match the current route.");
+  }
+
+  const normalizedSignature =
+    signature.length === 134 && signature.toLowerCase().startsWith("0x01") ? `0x${signature.slice(4)}` : signature;
+  const recoveredAddress = verifyTypedData(
+    intent.typedData.domain,
+    {
+      ExchangeAction: intent.typedData.types.ExchangeAction,
+    },
+    intent.typedData.message,
+    normalizedSignature
+  );
+
+  if (getAddress(recoveredAddress) !== getAddress(signerAddress) || getAddress(signerAddress) !== getAddress(intent.walletAddress)) {
+    throw new Error("Signature does not match the wallet that created the SoDEX intent.");
+  }
+
   if (process.env.SODEX_ENABLE_LIVE_EXECUTION !== "true") {
     return {
       dryRun: true,
@@ -339,20 +508,40 @@ export async function executeSignedSodexOrder({
     };
   }
 
-  const typedSignature = signature.startsWith("0x01") ? signature : `0x01${signature.replace(/^0x/, "")}`;
-  const response = await fetch(intent.endpoint, {
-    method: intent.method,
+  const typedSignature = signature.toLowerCase().startsWith("0x01") ? signature : `0x01${signature.replace(/^0x/, "")}`;
+  const params = intent.payload.params;
+  if (!isRecord(params)) {
+    throw new Error("SoDEX intent payload params are missing.");
+  }
+  if (!Number.isFinite(Number(params.accountID)) || Number(params.accountID) <= 0) {
+    throw new Error("SoDEX account ID is missing from the signed intent.");
+  }
+  if (!Number.isFinite(Number(params.symbolID)) || Number(params.symbolID) <= 0) {
+    throw new Error("SoDEX symbol ID is missing from the signed intent.");
+  }
+
+  const response = await fetch(ORDER_ENDPOINT, {
+    method: "POST",
     headers: {
-      ...intent.headersPreview,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-API-Nonce": String(intent.nonce),
       "X-API-Sign": typedSignature,
     },
-    body: JSON.stringify(intent.payload.params),
+    body: JSON.stringify(params),
+    signal: AbortSignal.timeout(SODEX_REQUEST_TIMEOUT_MS),
   });
 
-  const body = (await response.json()) as unknown;
+  const body = (await response.json().catch(() => undefined)) as unknown;
+  const orderErrors = response.ok ? readSodexOrderErrors(body) : [];
+  const submitted = response.ok && orderErrors.length === 0;
   return {
     dryRun: false,
+    submitted,
     status: response.status,
     body,
+    message: submitted
+      ? "Signed SoDEX order submitted."
+      : orderErrors[0] ?? `SoDEX rejected order with status ${response.status}.`,
   };
 }

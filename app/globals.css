@@ -28,6 +28,11 @@
   --chart-3: oklch(0.52 0.015 90);
   --chart-4: oklch(0.35 0.01 90);
   --chart-5: oklch(0.20 0.008 90);
+  --whale-accent: oklch(0.78 0.12 338);
+  --whale-info: oklch(0.78 0.12 210);
+  --whale-positive: oklch(0.76 0.13 155);
+  --whale-warning: oklch(0.82 0.13 82);
+  --whale-negative: oklch(0.68 0.18 28);
   --radius: 0.25rem;
   --sidebar: oklch(0.06 0.008 260);
   --sidebar-foreground: oklch(0.94 0.005 90);
@@ -67,6 +72,11 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-whale-accent: var(--whale-accent);
+  --color-whale-info: var(--whale-info);
+  --color-whale-positive: var(--whale-positive);
+  --color-whale-warning: var(--whale-warning);
+  --color-whale-negative: var(--whale-negative);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -185,11 +195,10 @@
   .word-gradient {
     background: linear-gradient(
       45deg,
-      #eca8d6 0%,
-      #a78bfa 25%,
-      #67e8f9 50%,
-      #fbbf24 75%,
-      #eca8d6 100%
+      var(--whale-accent) 0%,
+      var(--whale-info) 35%,
+      var(--whale-warning) 70%,
+      var(--whale-accent) 100%
     );
     background-size: 300% 300%;
     background-clip: text;
