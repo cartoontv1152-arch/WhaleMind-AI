@@ -8,8 +8,6 @@ AI-powered on-chain trading intelligence for SoSoValue research, SoDEX execution
 
 **Wave 2 complete:** wallet-authenticated private beta dashboard, MongoDB-backed saved state, per-asset signal history, SoSoValue Index reads, backtesting, alerts, portfolio snapshots, and signed SoDEX submission gating.
 
-AI-powered on-chain trading intelligence for the SoSoValue Buildathon.
-
 WhaleMind turns SoSoValue market intelligence, ETF flows, news, SoDEX order-book data, and ValueChain wallet execution into one research-to-action workflow:
 
 ```txt
@@ -59,6 +57,11 @@ Completed in Wave 2:
 - Added SoSoValue request timeouts and transient retry handling for rate limits/server errors.
 - Added webhook response validation so Telegram/Discord alerts are only marked delivered after a successful provider response.
 - Sanitized public API error responses so auth, beta-state, dashboard, intelligence, SoDEX, and Mongo persistence failures do not expose infrastructure details.
+- Hardened SoSoValue Index parsing for the official `/indices` string-array response, including transient `429` retry handling.
+- Gated private SoDEX intent and execute routes behind signed wallet sessions so public pages cannot trigger private execution workflows.
+- Added safer SoDEX market symbol validation, response-envelope checks, and dry-run behavior when a symbol cannot be resolved.
+- Removed raw upstream/provider error text from public dashboard and signal notes.
+- Upgraded the production dependency baseline and verified the production audit is clean.
 
 ## Tech Stack
 
@@ -73,6 +76,8 @@ Completed in Wave 2:
 ## Environment
 
 Copy `.env.example` into `.env.local` and fill in secrets. The local secret file is ignored by git.
+
+Secrets belong only in `.env.local` and hosted environment variables. Do not commit real API keys, wallet session secrets, MongoDB credentials, webhook tokens, or SoDEX account identifiers.
 
 Required for Wave 2 private beta readiness:
 
@@ -101,6 +106,8 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 `WHALEMIND_SESSION_SECRET` should be a random 32+ character server-only value. Keep `SODEX_ENABLE_LIVE_EXECUTION=false` while testing. The dashboard marks signed submission ready only after the flag and `SODEX_DEFAULT_ACCOUNT_ID` are configured; `SODEX_EIP712_VERIFYING_CONTRACT` is optional because WhaleMind defaults to SoDEX's zero-address EIP-712 verifying contract. If `SODEX_API_KEY_NAME` is set, it is sent as the SoDEX API-key name; otherwise WhaleMind omits `X-API-Key` for master-wallet signing. The dashboard does not render fake candles or placeholder market rows; charts come from the current live refresh plus MongoDB history when configured.
 
+For the current private beta deployment, live SoDEX submission is intentionally disabled with `SODEX_ENABLE_LIVE_EXECUTION=false` until the production account ID, risk limits, and signing contract are fully validated.
+
 ## Local Development
 
 ```bash
@@ -123,6 +130,18 @@ Wave 2 now turns the prototype into a private beta:
 - Telegram and Discord delivery hooks are wired through server-side env vars; missing webhook config and failed provider responses are shown in readiness/results.
 - Portfolio-aware beta state is available through manual holdings while full SoDEX account-state integration remains dependent on account IDs and balances.
 - The `/api/user-state` route now rejects unsigned writes and cross-wallet session mismatches.
+
+## Verification
+
+Recent hardening was verified with:
+
+```bash
+npx --yes pnpm@10.24.0 exec tsc --noEmit --incremental false
+npx --yes pnpm@10.24.0 audit --prod
+npx --yes pnpm@10.24.0 build
+```
+
+The Vercel project is linked through `.vercel/project.json`, with production and preview environment variables configured for SoSoValue, OpenAI, MongoDB, ValueChain, and guarded SoDEX settings.
 
 ## Wave 3 Roadmap
 
