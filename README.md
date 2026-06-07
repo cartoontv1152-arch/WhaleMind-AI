@@ -39,7 +39,7 @@ Completed in Wave 1:
 - Added local verification steps for type checks, production builds, API smoke tests, and browser inspection.
 - Added a separate `/dashboard` app surface with wallet-based login, live market charts, SoDEX intent creation, Mongo-backed signal history, and readiness checks.
 
-Completed in Wave 2:
+## Completed in Wave 2:
 
 - Added wallet challenge/signature authentication for the private beta dashboard.
 - Promoted MongoDB from optional history storage to a Wave 2 readiness gate for saved state and cross-session history.
