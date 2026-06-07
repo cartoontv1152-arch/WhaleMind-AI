@@ -60,15 +60,7 @@ Completed in Wave 2:
 - Added webhook response validation so Telegram/Discord alerts are only marked delivered after a successful provider response.
 - Sanitized public API error responses so auth, beta-state, dashboard, intelligence, SoDEX, and Mongo persistence failures do not expose infrastructure details.
 
-## Buildathon Fit
-
-WhaleMind directly targets the buildathon theme: agentic Web3 research-to-execution products.
-
-- SoSoValue: market data, ETF flows, hot news, and intelligence inputs.
-- SoDEX: order-book market data and execution route.
-- ValueChain: wallet network, RPC status, and on-chain execution target.
-- AI: signal explanation, risk summaries, and trader-facing decisions.
-- One-person finance workflow: scan, explain, simulate, confirm, execute.
+##  
 
 ## Tech Stack
 
