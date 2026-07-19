@@ -12,22 +12,61 @@ let clientPromise: Promise<MongoClient> | undefined;
 const memoryChallenges = new Map<string, WalletChallenge>();
 const memoryUserStates = new Map<string, UserBetaState>();
 
-function getMongoClient() {
+async function getDatabase() {
   if (!process.env.MONGODB_URI) return undefined;
-  clientPromise ??= new MongoClient(process.env.MONGODB_URI).connect();
-  return clientPromise;
+
+  try {
+    clientPromise ??= new MongoClient(process.env.MONGODB_URI).connect();
+    const client = await clientPromise;
+    return client.db(process.env.MONGODB_DB ?? "whalemind");
+  } catch {
+    clientPromise = undefined;
+    return undefined;
+  }
 }
 
-async function getDatabase() {
-  const client = await getMongoClient();
-  return client?.db(process.env.MONGODB_DB ?? "whalemind");
+export async function getPersistenceStatus() {
+  if (!process.env.MONGODB_URI) {
+    return {
+      configured: false,
+      available: false,
+      reason: "MONGODB_URI not configured",
+    };
+  }
+
+  const db = await getDatabase();
+  if (!db) {
+    return {
+      configured: true,
+      available: false,
+      reason: "MongoDB unavailable",
+    };
+  }
+
+  try {
+    await db.command({ ping: 1 });
+    return {
+      configured: true,
+      available: true,
+      database: db.databaseName,
+    };
+  } catch {
+    return {
+      configured: true,
+      available: false,
+      reason: "MongoDB ping failed",
+    };
+  }
 }
 
 export async function persistSnapshot(snapshot: WhaleMindSnapshot) {
   try {
     const db = await getDatabase();
     if (!db) {
-      return { stored: false, reason: "MONGODB_URI not configured" };
+      return {
+        stored: false,
+        reason: process.env.MONGODB_URI ? "MongoDB unavailable" : "MONGODB_URI not configured",
+      };
     }
 
     await db.collection("signal_snapshots").insertOne({
@@ -114,7 +153,7 @@ export async function createWalletChallenge(walletAddress: string): Promise<Wall
     message: [
       "WhaleMind AI wallet login",
       "",
-      "Sign this message to open your private beta workspace.",
+      "Sign this message to open your private workspace.",
       "This does not submit a transaction or authorize a trade.",
       "",
       `Wallet: ${normalizedWallet}`,
@@ -150,14 +189,18 @@ export async function consumeWalletChallenge(walletAddress: string, message: str
   const nonce = message.match(/^Nonce:\s*([0-9a-f-]+)$/m)?.[1];
   if (!nonce) return false;
 
-  const db = await getDatabase();
-  if (!db) {
-    const challenge = memoryChallenges.get(nonce);
-    if (!challenge || challenge.walletAddress !== normalizedWallet || challenge.message !== message) return false;
-    if (Date.parse(challenge.expiresAt) < Date.now()) return false;
-    memoryChallenges.delete(nonce);
-    return true;
+  const memoryChallenge = memoryChallenges.get(nonce);
+  if (memoryChallenge) {
+    const valid =
+      memoryChallenge.walletAddress === normalizedWallet &&
+      memoryChallenge.message === message &&
+      Date.parse(memoryChallenge.expiresAt) >= Date.now();
+    if (valid) memoryChallenges.delete(nonce);
+    return valid;
   }
+
+  const db = await getDatabase();
+  if (!db) return false;
 
   const result = await db.collection("wallet_challenges").findOneAndUpdate(
     {

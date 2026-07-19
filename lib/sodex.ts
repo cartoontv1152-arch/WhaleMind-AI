@@ -1,20 +1,18 @@
-import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { getAddress, isAddress, JsonRpcProvider, keccak256, toUtf8Bytes, verifyTypedData } from "ethers";
 import { z } from "zod";
 
-import { fallbackSodexMarket } from "@/lib/fallback-data";
 import { VALUECHAIN_MAINNET, VALUECHAIN_TESTNET } from "@/lib/valuechain";
 import type { ChainStatus, OrderIntent, OrderIntentInput, SodexMarket, WhaleEvent } from "@/lib/whalemind-types";
 
 const SODEX_ENV = (process.env.SODEX_ENV === "testnet" ? "testnet" : "mainnet") as "mainnet" | "testnet";
-const DEFAULT_SYMBOL = process.env.SODEX_DEFAULT_SYMBOL ?? "vBTC_vUSDC";
+const DEFAULT_SYMBOL = normalizeSodexSymbol(process.env.SODEX_DEFAULT_SYMBOL ?? "vBTC_vUSDC");
 const SODEX_DEFAULT_ACCOUNT_ID =
   process.env.SODEX_DEFAULT_ACCOUNT_ID !== undefined && process.env.SODEX_DEFAULT_ACCOUNT_ID !== ""
     ? Number(process.env.SODEX_DEFAULT_ACCOUNT_ID)
     : undefined;
 const DEFAULT_EIP712_VERIFYING_CONTRACT = "0x0000000000000000000000000000000000000000";
-const SODEX_EIP712_VERIFYING_CONTRACT =
-  process.env.SODEX_EIP712_VERIFYING_CONTRACT || DEFAULT_EIP712_VERIFYING_CONTRACT;
+const SODEX_EIP712_VERIFYING_CONTRACT = process.env.SODEX_EIP712_VERIFYING_CONTRACT;
 const SODEX_API_KEY_NAME = process.env.SODEX_API_KEY_NAME;
 const SODEX_REQUEST_TIMEOUT_MS = 8000;
 
@@ -29,6 +27,13 @@ const ORDER_ENDPOINT = `${SPOT_ENDPOINT}/trade/orders/batch`;
 
 let developmentIntentSecret: string | undefined;
 
+const DEFAULT_SYMBOL_MAP: Record<string, string> = {
+  BTC: "vBTC_vUSDC",
+  ETH: "vETH_vUSDC",
+  SOL: "vSOL_vUSDC",
+  XRP: "vXRP_vUSDC",
+};
+
 interface SodexResponse<T> {
   code: number;
   timestamp?: number;
@@ -40,6 +45,54 @@ type LooseTicker = Record<string, unknown>;
 type LooseBookTicker = Record<string, unknown>;
 type LooseSymbol = Record<string, unknown>;
 type LooseTrade = Record<string, unknown>;
+
+function normalizeAssetSymbol(symbol: string) {
+  return symbol.trim().replace(/^v/i, "").split("_")[0].toUpperCase();
+}
+
+function normalizeSodexSymbol(symbol: string) {
+  const trimmed = symbol.trim();
+  const [base, quote = "vUSDC"] = trimmed.split("_");
+  const normalizedBase = base.toLowerCase().startsWith("v") ? `v${base.slice(1).toUpperCase()}` : `v${base.toUpperCase()}`;
+  const normalizedQuote = quote.toLowerCase().startsWith("v") ? `v${quote.slice(1).toUpperCase()}` : `v${quote.toUpperCase()}`;
+  return `${normalizedBase}_${normalizedQuote}`;
+}
+
+function parseSodexSymbolMap(value?: string) {
+  const configured = new Map<string, string>();
+  Object.entries(DEFAULT_SYMBOL_MAP).forEach(([asset, symbol]) => configured.set(asset, symbol));
+
+  (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .forEach((item) => {
+      const [asset, symbol] = item.split(":").map((part) => part?.trim());
+      if (asset && symbol) configured.set(normalizeAssetSymbol(asset), normalizeSodexSymbol(symbol));
+    });
+
+  return configured;
+}
+
+const SODEX_SYMBOL_MAP = parseSodexSymbolMap(process.env.SODEX_SYMBOL_MAP);
+
+export function getSodexSymbolForAsset(asset: string) {
+  const normalizedAsset = normalizeAssetSymbol(asset);
+  return SODEX_SYMBOL_MAP.get(normalizedAsset) ?? normalizeSodexSymbol(`v${normalizedAsset}_vUSDC`);
+}
+
+export function getSodexRoutesForAssets(assetSymbols: string[]) {
+  return Object.fromEntries(
+    Array.from(new Set(assetSymbols.map(normalizeAssetSymbol).filter(Boolean))).map((asset) => [
+      asset,
+      getSodexSymbolForAsset(asset),
+    ])
+  );
+}
+
+function assetFromSodexSymbol(symbol: string) {
+  return normalizeAssetSymbol(symbol);
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -53,7 +106,7 @@ const orderIntentSchema = z.object({
     .trim()
     .regex(/^[0-9a-zA-Z_-]{1,36}$/)
     .optional(),
-  symbol: z.string().min(3).optional().default(DEFAULT_SYMBOL),
+  symbol: z.string().min(3).transform(normalizeSodexSymbol).optional().default(DEFAULT_SYMBOL),
   side: z.enum(["BUY", "SELL"]),
   notionalUsd: z.coerce.number().positive().max(1_000_000),
   orderType: z.enum(["MARKET", "LIMIT"]).optional().default("MARKET"),
@@ -69,6 +122,7 @@ export function getSodexRuntimeConfig() {
   return {
     environment: SODEX_ENV,
     defaultSymbol: DEFAULT_SYMBOL,
+    symbolMap: getSodexRoutesForAssets(Array.from(SODEX_SYMBOL_MAP.keys())),
     spotEndpoint: SPOT_ENDPOINT,
     hasDefaultAccountId: hasEnvAccount,
     hasApiKeyName: Boolean(SODEX_API_KEY_NAME),
@@ -204,16 +258,17 @@ export async function getValueChainStatus(): Promise<ChainStatus> {
 }
 
 async function readSodexMarket(symbol = DEFAULT_SYMBOL): Promise<SodexMarket> {
+  const resolvedSymbol = normalizeSodexSymbol(symbol);
   const [tickers, books] = await Promise.all([
-    sodexGet<LooseTicker[]>("/markets/tickers", { symbol }),
-    sodexGet<LooseBookTicker[]>("/markets/bookTickers", { symbol }),
+    sodexGet<LooseTicker[]>("/markets/tickers", { symbol: resolvedSymbol }),
+    sodexGet<LooseBookTicker[]>("/markets/bookTickers", { symbol: resolvedSymbol }),
   ]);
   const ticker = tickers[0] ?? {};
   const book = books[0] ?? {};
 
   return {
     environment: SODEX_ENV,
-    symbol,
+    symbol: resolvedSymbol,
     lastPrice: pickNumber(ticker, ["lastPrice", "price", "close", "c"]),
     priceChange24h: pickNumber(ticker, ["priceChangePercent", "priceChangePct", "changePct", "priceChange24h"]),
     volume24h: pickNumber(ticker, ["volume", "quoteVolume", "volume24h"]),
@@ -228,19 +283,25 @@ export async function getLiveSodexMarket(symbol = DEFAULT_SYMBOL): Promise<Sodex
 }
 
 export async function getSodexMarket(symbol = DEFAULT_SYMBOL): Promise<SodexMarket> {
-  try {
-    const market = await readSodexMarket(symbol);
-    return {
-      ...market,
-      lastPrice: market.lastPrice ?? fallbackSodexMarket().lastPrice,
-    };
-  } catch {
-    return { ...fallbackSodexMarket(), environment: SODEX_ENV, symbol };
-  }
+  return readSodexMarket(symbol);
+}
+
+export async function getLiveSodexMarketsForAssets(assetSymbols: string[]): Promise<Record<string, SodexMarket>> {
+  const routes = getSodexRoutesForAssets(assetSymbols);
+  const entries = await Promise.allSettled(
+    Object.entries(routes).map(async ([asset, symbol]) => [asset, await readSodexMarket(symbol)] as const)
+  );
+
+  return Object.fromEntries(
+    entries
+      .filter((entry): entry is PromiseFulfilledResult<readonly [string, SodexMarket]> => entry.status === "fulfilled")
+      .map((entry) => entry.value)
+  );
 }
 
 async function readSodexWhaleEvents(symbol = DEFAULT_SYMBOL): Promise<WhaleEvent[]> {
-  const trades = await sodexGet<LooseTrade[]>(`/markets/${symbol}/trades`, { limit: 25 });
+  const resolvedSymbol = normalizeSodexSymbol(symbol);
+  const trades = await sodexGet<LooseTrade[]>(`/markets/${resolvedSymbol}/trades`, { limit: 25 });
   const generatedAt = new Date().toISOString();
   const events = trades
     .map((trade, index) => {
@@ -252,12 +313,12 @@ async function readSodexWhaleEvents(symbol = DEFAULT_SYMBOL): Promise<WhaleEvent
         sideText.includes("sell") || sideText === "true" ? "distribution" : "accumulation";
 
       return {
-        id: `sodex-${symbol}-${index}`,
-        asset: symbol.replace("v", "").split("_")[0] || "BTC",
+        id: `sodex-${resolvedSymbol}-${index}`,
+        asset: assetFromSodexSymbol(resolvedSymbol),
         direction,
         notionalUsd,
         confidence: Math.min(92, Math.max(52, Math.round(notionalUsd / 25_000) + 55)),
-        summary: `${symbol} order-book print detected on SoDEX with estimated notional exposure.`,
+        summary: `${resolvedSymbol} order-book print detected on SoDEX with estimated notional exposure.`,
         source: "SoDEX order book" as const,
         timestamp: generatedAt,
       };
@@ -281,11 +342,18 @@ export async function getSodexWhaleEvents(symbol = DEFAULT_SYMBOL): Promise<Whal
   }
 }
 
+export async function getLiveSodexWhaleEventsForAssets(assetSymbols: string[]): Promise<WhaleEvent[]> {
+  const routes = getSodexRoutesForAssets(assetSymbols);
+  const results = await Promise.allSettled(Object.values(routes).map((symbol) => readSodexWhaleEvents(symbol)));
+  return results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+}
+
 async function resolveSymbolId(symbol: string) {
-  const symbols = await sodexGet<LooseSymbol[]>("/markets/symbols", { symbol });
-  const match = symbols.find((item) => String(item.symbol ?? item.name ?? "") === symbol);
+  const resolvedSymbol = normalizeSodexSymbol(symbol);
+  const symbols = await sodexGet<LooseSymbol[]>("/markets/symbols", { symbol: resolvedSymbol });
+  const match = symbols.find((item) => String(item.symbol ?? item.name ?? "") === resolvedSymbol);
   const id = match ? pickNumber(match, ["symbolID", "symbolId", "id"]) : undefined;
-  if (id === undefined) throw new Error(`SoDEX symbol ${symbol} could not be resolved.`);
+  if (id === undefined) throw new Error(`SoDEX symbol ${resolvedSymbol} could not be resolved.`);
   return id;
 }
 
@@ -303,9 +371,12 @@ export async function createSodexOrderIntent(input: OrderIntentInput): Promise<O
   const hasVerifyingContract = Boolean(
     SODEX_EIP712_VERIFYING_CONTRACT && isAddress(SODEX_EIP712_VERIFYING_CONTRACT)
   );
-  const verifyingContract = hasVerifyingContract ? SODEX_EIP712_VERIFYING_CONTRACT : DEFAULT_EIP712_VERIFYING_CONTRACT;
-  const clOrdID = `whalemind-${Date.now().toString(36)}`;
-  const nonce = Date.now();
+  const verifyingContract =
+    hasVerifyingContract && SODEX_EIP712_VERIFYING_CONTRACT
+      ? SODEX_EIP712_VERIFYING_CONTRACT
+      : DEFAULT_EIP712_VERIFYING_CONTRACT;
+  const nonce = Date.now() * 1000 + randomInt(0, 1000);
+  const clOrdID = `whalemind-${nonce.toString(36)}-${randomBytes(3).toString("hex")}`;
   const side = parsed.side === "BUY" ? 1 : 2;
   const type = parsed.orderType === "MARKET" ? 2 : 1;
   const timeInForce = parsed.orderType === "MARKET" ? 3 : 1;
@@ -329,12 +400,9 @@ export async function createSodexOrderIntent(input: OrderIntentInput): Promise<O
   }
 
   const payload = {
-    type: "newOrder",
-    params: {
-      accountID: hasAccountId ? resolvedAccountId : 0,
-      symbolID: symbolId ?? 0,
-      orders: [order],
-    },
+    accountID: hasAccountId ? resolvedAccountId : 0,
+    symbolID: symbolId ?? 0,
+    orders: [order],
   };
   const payloadHash = keccak256(toUtf8Bytes(JSON.stringify(payload)));
   const canBrowserSignForLiveExecution = hasAccountId && symbolId !== undefined && hasVerifyingContract && !apiKeyName;
@@ -383,6 +451,7 @@ export async function createSodexOrderIntent(input: OrderIntentInput): Promise<O
     executionMode: canBrowserSignForLiveExecution ? "ready-for-signature" : "dry-run",
     warnings: [
       "This is an EIP-712 order intent. Submit only after the wallet signs and live execution is enabled.",
+      "The EIP-712 payload hash signs the exact JSON body WhaleMind will submit to SoDEX.",
       apiKeyName
         ? "Registered API-key mode is preview-only in WhaleMind: SoDEX requires the API key private key to sign trading actions, not the browser wallet."
         : "No X-API-Key header is included; SoDEX will verify this as a master-wallet signed request.",
@@ -463,12 +532,13 @@ export async function executeSignedSodexOrder({
     throw new Error("Registered API-key order signing is not supported by the browser-wallet submit path.");
   }
 
-  if (
-    !SODEX_EIP712_VERIFYING_CONTRACT ||
-    !isAddress(SODEX_EIP712_VERIFYING_CONTRACT) ||
-    intent.typedData.domain.verifyingContract.toLowerCase() !== SODEX_EIP712_VERIFYING_CONTRACT.toLowerCase()
-  ) {
-    throw new Error("SoDEX verifying contract changed or is not configured.");
+  const expectedVerifyingContract =
+    SODEX_EIP712_VERIFYING_CONTRACT && isAddress(SODEX_EIP712_VERIFYING_CONTRACT)
+      ? SODEX_EIP712_VERIFYING_CONTRACT
+      : DEFAULT_EIP712_VERIFYING_CONTRACT;
+
+  if (intent.typedData.domain.verifyingContract.toLowerCase() !== expectedVerifyingContract.toLowerCase()) {
+    throw new Error("SoDEX verifying contract changed for this deployment.");
   }
 
   const recomputedPayloadHash = keccak256(toUtf8Bytes(JSON.stringify(intent.payload)));
@@ -508,10 +578,22 @@ export async function executeSignedSodexOrder({
     };
   }
 
+  if (intent.executionMode !== "ready-for-signature") {
+    return {
+      dryRun: true,
+      message: "This intent is dry-run only. Create a fresh ready-for-signature intent after SoDEX account and contract settings are configured.",
+      intent,
+    };
+  }
+
+  if (!SODEX_EIP712_VERIFYING_CONTRACT || !isAddress(SODEX_EIP712_VERIFYING_CONTRACT)) {
+    throw new Error("SODEX_EIP712_VERIFYING_CONTRACT must be configured before live SoDEX execution.");
+  }
+
   const typedSignature = signature.toLowerCase().startsWith("0x01") ? signature : `0x01${signature.replace(/^0x/, "")}`;
-  const params = intent.payload.params;
+  const params = intent.payload;
   if (!isRecord(params)) {
-    throw new Error("SoDEX intent payload params are missing.");
+    throw new Error("SoDEX intent payload is missing.");
   }
   if (!Number.isFinite(Number(params.accountID)) || Number(params.accountID) <= 0) {
     throw new Error("SoDEX account ID is missing from the signed intent.");

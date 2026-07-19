@@ -1,6 +1,6 @@
 export type TradeAction = "BUY" | "SELL" | "HOLD" | "WATCH";
 
-export type DataSourceState = "live" | "fallback" | "partial";
+export type DataSourceState = "live" | "partial" | "unavailable";
 
 export interface MarketAsset {
   symbol: string;
@@ -9,7 +9,7 @@ export interface MarketAsset {
   change24h: number;
   volume24h: number;
   marketCap: number;
-  source: "SoSoValue" | "Fallback";
+  source: "SoSoValue";
 }
 
 export interface EtfFlow {
@@ -33,6 +33,14 @@ export interface SosoIndexConstituent {
   weight: number;
 }
 
+export interface SosoIndexKline {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
 export interface SosoIndexSnapshot {
   ticker: string;
   name: string;
@@ -44,6 +52,38 @@ export interface SosoIndexSnapshot {
   roi1y: number;
   ytd: number;
   constituents: SosoIndexConstituent[];
+  klines: SosoIndexKline[];
+}
+
+export interface MacroEventDay {
+  date: string;
+  events: string[];
+}
+
+export interface MacroEventHistoryPoint {
+  date: string;
+  actual?: number;
+  forecast?: number;
+  previous?: number;
+}
+
+export interface MacroEventInsight {
+  event: string;
+  latest?: MacroEventHistoryPoint;
+  history: MacroEventHistoryPoint[];
+}
+
+export interface SosoMacroSnapshot {
+  days: MacroEventDay[];
+  tracked: MacroEventInsight[];
+}
+
+export interface SosoRateLimitStatus {
+  limit?: number;
+  remaining?: number;
+  resetAt?: string;
+  cooldownUntil?: string;
+  lastUpdatedAt?: string;
 }
 
 export interface WhaleEvent {
@@ -53,7 +93,7 @@ export interface WhaleEvent {
   notionalUsd: number;
   confidence: number;
   summary: string;
-  source: "SoDEX order book" | "ValueChain" | "Simulated fallback";
+  source: "SoDEX order book" | "ValueChain";
   timestamp: string;
 }
 
@@ -85,7 +125,7 @@ export interface SodexMarket {
   volume24h?: number;
   bid?: number;
   ask?: number;
-  source: "SoDEX" | "Fallback";
+  source: "SoDEX";
 }
 
 export interface WhaleMindSnapshot {
@@ -95,12 +135,16 @@ export interface WhaleMindSnapshot {
   assets: MarketAsset[];
   etfFlows: EtfFlow[];
   indices: SosoIndexSnapshot[];
+  macro: SosoMacroSnapshot;
   news: NewsItem[];
   whaleEvents: WhaleEvent[];
   signals: AiSignal[];
-  sodex: SodexMarket;
-  chain: ChainStatus;
+  sodex?: SodexMarket;
+  sodexMarkets: Record<string, SodexMarket>;
+  sodexRoutes: Record<string, string>;
+  chain?: ChainStatus;
   aiBrief: string;
+  sosoRateLimit?: SosoRateLimitStatus;
 }
 
 export interface RuntimeConfigStatus {
@@ -118,6 +162,8 @@ export interface RuntimeConfigStatus {
     telegram: boolean;
     discord: boolean;
   };
+  sosovalueRateLimit?: SosoRateLimitStatus;
+  sosovalueRefreshSeconds: number;
 }
 
 export interface DashboardHistoryPoint {
@@ -131,20 +177,24 @@ export interface DashboardHistoryPoint {
 
 export interface DashboardSnapshot {
   generatedAt: string;
-  state: Exclude<DataSourceState, "fallback">;
+  state: DataSourceState;
   sourceNotes: string[];
   assets: MarketAsset[];
   etfFlows: EtfFlow[];
   indices: SosoIndexSnapshot[];
+  macro: SosoMacroSnapshot;
   news: NewsItem[];
   whaleEvents: WhaleEvent[];
   signals: AiSignal[];
   sodex?: SodexMarket;
+  sodexMarkets: Record<string, SodexMarket>;
+  sodexRoutes: Record<string, string>;
   chain?: ChainStatus;
   aiBrief?: string;
   history: DashboardHistoryPoint[];
   assetHistory: Record<string, DashboardHistoryPoint[]>;
   config: RuntimeConfigStatus;
+  sosoRateLimit?: SosoRateLimitStatus;
 }
 
 export interface OrderIntentInput {

@@ -1,9 +1,22 @@
 import { generateAiBrief } from "@/lib/ai";
-import { buildFallbackSnapshot, buildFallbackWhaleEvents, fallbackAssets, fallbackEtfFlows, fallbackNews, fallbackSignals } from "@/lib/fallback-data";
 import { persistSnapshot } from "@/lib/db";
-import { getSodexMarket, getSodexWhaleEvents, getValueChainStatus } from "@/lib/sodex";
-import { getSosoEtfFlows, getSosoHotNews, getSosoIndices, getSosoMarketAssets } from "@/lib/sosovalue";
-import type { AiSignal, EtfFlow, MarketAsset, WhaleEvent, WhaleMindSnapshot } from "@/lib/whalemind-types";
+import {
+  getLiveSodexMarket,
+  getLiveSodexMarketsForAssets,
+  getLiveSodexWhaleEvents,
+  getLiveSodexWhaleEventsForAssets,
+  getSodexRoutesForAssets,
+  getValueChainStatus,
+} from "@/lib/sodex";
+import {
+  getSosoEtfFlows,
+  getSosoHotNews,
+  getSosoIndices,
+  getSosoMacroEvents,
+  getSosoMarketAssets,
+  getSosoRateLimitStatus,
+} from "@/lib/sosovalue";
+import type { AiSignal, EtfFlow, MarketAsset, SodexMarket, WhaleEvent, WhaleMindSnapshot } from "@/lib/whalemind-types";
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -43,7 +56,7 @@ export function buildSignals(assets: MarketAsset[], flows: EtfFlow[], whales: Wh
       risk,
       thesis:
         action === "BUY"
-          ? `${asset.symbol} has aligned momentum, liquidity, and flow support for a simulated long setup.`
+          ? `${asset.symbol} has aligned momentum, liquidity, and flow support for a candidate long setup.`
           : action === "SELL"
             ? `${asset.symbol} shows enough weakness that WhaleMind would de-risk before execution.`
             : `${asset.symbol} has incomplete confirmation; monitor flow before routing to SoDEX.`,
@@ -60,46 +73,55 @@ export async function getWhaleMindSnapshot({ persist = false }: { persist?: bool
   const generatedAt = new Date().toISOString();
   const sourceNotes: string[] = [];
 
-  const [assetsResult, flowsResult, indicesResult, newsResult, sodex, chain, sodexWhales] = await Promise.allSettled([
+  const [assetsResult, flowsResult, indicesResult, macroResult, newsResult, chain] = await Promise.allSettled([
     getSosoMarketAssets(),
     getSosoEtfFlows(),
     getSosoIndices(),
+    getSosoMacroEvents(),
     getSosoHotNews(),
-    getSodexMarket(),
     getValueChainStatus(),
-    getSodexWhaleEvents(),
   ]);
 
-  const assets =
-    assetsResult.status === "fulfilled" && assetsResult.value.length > 0 ? assetsResult.value : fallbackAssets;
-  if (assetsResult.status === "rejected") sourceNotes.push("SoSoValue markets fallback");
+  const assets = assetsResult.status === "fulfilled" ? assetsResult.value : [];
+  if (assetsResult.status === "rejected") sourceNotes.push("SoSoValue market data unavailable");
+  if (assetsResult.status === "fulfilled" && assets.length === 0) sourceNotes.push("SoSoValue returned no configured market assets");
 
-  const etfFlows =
-    flowsResult.status === "fulfilled" && flowsResult.value.length > 0 ? flowsResult.value : fallbackEtfFlows;
-  if (flowsResult.status === "rejected") sourceNotes.push("SoSoValue ETF fallback");
+  const etfFlows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
+  if (flowsResult.status === "rejected") sourceNotes.push("SoSoValue ETF flow unavailable");
 
   const indices = indicesResult.status === "fulfilled" ? indicesResult.value : [];
-  if (indicesResult.status === "rejected") sourceNotes.push("SoSoValue Index fallback");
+  if (indicesResult.status === "rejected") sourceNotes.push("SoSoValue Index data unavailable");
 
-  const news = newsResult.status === "fulfilled" && newsResult.value.length > 0 ? newsResult.value : fallbackNews;
-  if (newsResult.status === "rejected") sourceNotes.push("SoSoValue news fallback");
+  const macro = macroResult.status === "fulfilled" ? macroResult.value : { days: [], tracked: [] };
+  if (macroResult.status === "rejected") sourceNotes.push("SoSoValue macro calendar unavailable");
 
-  const liveSodex = sodex.status === "fulfilled" ? sodex.value : undefined;
-  if (sodex.status === "rejected") sourceNotes.push("SoDEX market fallback");
+  const news = newsResult.status === "fulfilled" ? newsResult.value : [];
+  if (newsResult.status === "rejected") sourceNotes.push("SoSoValue news unavailable");
 
   const liveChain = chain.status === "fulfilled" ? chain.value : undefined;
-  if (chain.status === "rejected") sourceNotes.push("ValueChain fallback");
+  if (chain.status === "rejected") sourceNotes.push("ValueChain RPC unavailable");
   if (liveChain && !liveChain.isLive) sourceNotes.push("ValueChain RPC did not confirm live status for this refresh.");
 
-  const whales =
-    sodexWhales.status === "fulfilled" && sodexWhales.value.length > 0
-      ? sodexWhales.value
-      : buildFallbackWhaleEvents(generatedAt);
-  if (sodexWhales.status === "rejected") sourceNotes.push("SoDEX whale fallback");
+  const sodexRoutes = getSodexRoutesForAssets(assets.map((asset) => asset.symbol));
+  const [sodexMarketsResult, sodexWhales] = await Promise.allSettled([
+    assets.length > 0
+      ? getLiveSodexMarketsForAssets(assets.map((asset) => asset.symbol))
+      : getLiveSodexMarket().then((market): Record<string, SodexMarket> => ({ BTC: market })),
+    assets.length > 0 ? getLiveSodexWhaleEventsForAssets(assets.map((asset) => asset.symbol)) : getLiveSodexWhaleEvents(),
+  ]);
+  const sodexMarkets: Record<string, SodexMarket> = sodexMarketsResult.status === "fulfilled" ? sodexMarketsResult.value : {};
+  const liveSodex = assets[0] ? sodexMarkets[assets[0].symbol] ?? Object.values(sodexMarkets)[0] : Object.values(sodexMarkets)[0];
+  if (sodexMarketsResult.status === "rejected" || !liveSodex) sourceNotes.push("SoDEX market data unavailable");
 
-  const signals = buildSignals(assets, etfFlows, whales);
-  const aiBrief = await generateAiBrief({ assets, etfFlows, news, whaleEvents: whales, signals });
-  const state = sourceNotes.length === 0 ? "live" : sourceNotes.length < 3 ? "partial" : "fallback";
+  const whales = sodexWhales.status === "fulfilled" ? sodexWhales.value : [];
+  if (sodexWhales.status === "rejected") sourceNotes.push("SoDEX trade tape unavailable");
+
+  const signals = assets.length > 0 ? buildSignals(assets, etfFlows, whales) : [];
+  const aiBrief =
+    assets.length > 0
+      ? await generateAiBrief({ assets, etfFlows, news, whaleEvents: whales, signals })
+      : "Live market sources are not ready yet. Configure SoSoValue, SoDEX, and ValueChain providers to enable signals.";
+  const state = sourceNotes.length === 0 && liveChain?.isLive ? "live" : sourceNotes.length < 5 ? "partial" : "unavailable";
 
   const snapshot: WhaleMindSnapshot = {
     generatedAt,
@@ -108,15 +130,19 @@ export async function getWhaleMindSnapshot({ persist = false }: { persist?: bool
     assets,
     etfFlows,
     indices,
+    macro,
     news,
     whaleEvents: whales,
-    signals: signals.length > 0 ? signals : fallbackSignals,
-    sodex: liveSodex ?? buildFallbackSnapshot().sodex,
-    chain: liveChain ?? buildFallbackSnapshot().chain,
+    signals,
+    sodex: liveSodex,
+    sodexMarkets,
+    sodexRoutes,
+    chain: liveChain,
     aiBrief,
+    sosoRateLimit: getSosoRateLimitStatus(),
   };
 
-  if (persist) {
+  if (persist && snapshot.assets.length > 0 && snapshot.sodex && snapshot.chain) {
     await persistSnapshot(snapshot);
   }
 

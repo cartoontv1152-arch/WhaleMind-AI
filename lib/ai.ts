@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 
+import { normalizeAiBrief } from "@/lib/brief";
 import type { AiSignal, EtfFlow, MarketAsset, NewsItem, WhaleEvent } from "@/lib/whalemind-types";
 
 function compactMoney(value: number) {
@@ -40,7 +41,7 @@ export async function generateAiBrief(input: {
   signals: AiSignal[];
 }) {
   if (!process.env.OPENAI_API_KEY) {
-    return buildDeterministicBrief(input);
+    return normalizeAiBrief(buildDeterministicBrief(input));
   }
 
   try {
@@ -51,18 +52,18 @@ export async function generateAiBrief(input: {
         {
           role: "system",
           content:
-            "You are WhaleMind AI, a concise on-chain market analyst. Give no financial guarantees. Mention risk and execution confirmation.",
+            "You are WhaleMind AI, a concise on-chain market analyst. Return one plain-text paragraph, two sentences maximum, under 75 words. Do not use markdown, bullets, numbered lists, tables, or headings. Mention market bias, the top signal, the strongest flow or whale context, risk, and execution confirmation. Give no financial guarantees.",
         },
         {
           role: "user",
           content: JSON.stringify(input).slice(0, 8000),
         },
       ],
-      max_output_tokens: 160,
+      max_output_tokens: 120,
     });
 
-    return response.output_text || buildDeterministicBrief(input);
+    return normalizeAiBrief(response.output_text || buildDeterministicBrief(input));
   } catch {
-    return buildDeterministicBrief(input);
+    return normalizeAiBrief(buildDeterministicBrief(input));
   }
 }
