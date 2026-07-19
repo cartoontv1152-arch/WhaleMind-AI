@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { normalizeAiBrief } from "@/lib/brief";
 import { cn } from "@/lib/utils";
 import { VALUECHAIN_MAINNET, VALUECHAIN_TESTNET } from "@/lib/valuechain";
 import type {
@@ -46,6 +47,7 @@ import type {
   DashboardSnapshot,
   OrderIntent,
   PortfolioHolding,
+  SodexMarket,
   UserAlert,
   UserBetaState,
 } from "@/lib/whalemind-types";
@@ -111,6 +113,21 @@ function chartTime(value?: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function formatDate(value?: string) {
+  if (!value) return "unavailable";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
+}
+
+function macroValue(value?: number) {
+  if (value === undefined || Number.isNaN(value)) return "n/a";
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function targetChain(environment?: "mainnet" | "testnet") {
@@ -364,7 +381,7 @@ export function DashboardClient() {
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [userState, setUserState] = useState<UserBetaState | null>(null);
   const [wallet, setWallet] = useState<string>();
-  const [status, setStatus] = useState("Sign wallet to open Wave 2 workspace");
+  const [status, setStatus] = useState("Sign wallet to open production workspace");
   const [isLoading, setIsLoading] = useState(true);
   const [isWalletBusy, setIsWalletBusy] = useState(false);
   const [isOrderBusy, setIsOrderBusy] = useState(false);
@@ -400,9 +417,10 @@ export function DashboardClient() {
   useEffect(() => {
     refresh();
     if (!isAuthenticated) return;
-    const interval = window.setInterval(refresh, 30_000);
+    const refreshMs = Math.max(60_000, (snapshot?.config.sosovalueRefreshSeconds ?? 60) * 1000);
+    const interval = window.setInterval(refresh, refreshMs);
     return () => window.clearInterval(interval);
-  }, [isAuthenticated, refresh]);
+  }, [isAuthenticated, refresh, snapshot?.config.sosovalueRefreshSeconds]);
 
   useEffect(() => {
     const provider = window.ethereum;
@@ -429,6 +447,12 @@ export function DashboardClient() {
     return snapshot?.signals.find((signal) => signal.asset === selectedAsset) ?? topSignal;
   }, [selectedAsset, snapshot?.signals, topSignal]);
   const selectedMarket = snapshot?.assets.find((asset) => asset.symbol === selectedSignal?.asset);
+  const selectedSodexSymbol = selectedSignal?.asset
+    ? snapshot?.sodexRoutes[selectedSignal.asset] ?? snapshot?.sodex?.symbol
+    : snapshot?.sodex?.symbol;
+  const selectedSodexMarket: SodexMarket | undefined = selectedSignal?.asset
+    ? snapshot?.sodexMarkets[selectedSignal.asset] ?? snapshot?.sodex
+    : snapshot?.sodex;
   const selectedHistory = useMemo(() => {
     const assetSymbol = selectedSignal?.asset ?? snapshot?.assets[0]?.symbol;
     if (!assetSymbol) return [];
@@ -473,10 +497,27 @@ export function DashboardClient() {
       confidence: event.confidence,
     }));
   }, [snapshot?.whaleEvents]);
+  const indexTrendChart = useMemo(() => {
+    return (snapshot?.indices[0]?.klines ?? []).map((point) => ({
+      time: formatDate(new Date(point.timestamp).toISOString()),
+      close: point.close,
+    }));
+  }, [snapshot?.indices]);
+  const sosoRateLimit = snapshot?.config.sosovalueRateLimit ?? snapshot?.sosoRateLimit;
+  const sosoQuotaLabel =
+    sosoRateLimit?.remaining !== undefined && sosoRateLimit.limit !== undefined
+      ? `SoSo quota ${sosoRateLimit.remaining}/${sosoRateLimit.limit}`
+      : "SoSo quota";
+  const displayBrief = useMemo(
+    () => normalizeAiBrief(snapshot?.aiBrief, "WhaleMind is waiting for live SoSoValue, SSI, SoDEX, and ValueChain data."),
+    [snapshot?.aiBrief]
+  );
+  const hasMongoWarning = Boolean(snapshot?.sourceNotes.some((note) => note.toLowerCase().includes("mongodb")));
+  const mongodbReady = Boolean(snapshot?.config.mongodb && !hasMongoWarning);
   const selectedWatchlisted = Boolean(
     selectedSignal && userState?.watchlist.some((item) => item.symbol === selectedSignal.asset)
   );
-  const canCreateOrderIntent = Boolean(snapshot?.sodex && isOrderableSignal(selectedSignal));
+  const canCreateOrderIntent = Boolean(selectedSodexSymbol && isOrderableSignal(selectedSignal));
 
   const postUserAction = useCallback(
     async <T extends JsonRecord>(body: T) => {
@@ -537,7 +578,7 @@ export function DashboardClient() {
 
       setWallet(connectedWallet);
       setUserState(session.state);
-      setStatus("Wallet authenticated; Wave 2 workspace unlocked");
+      setStatus("Wallet authenticated; production workspace unlocked");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Wallet authentication rejected");
     } finally {
@@ -550,7 +591,7 @@ export function DashboardClient() {
       setStatus("Connect wallet before creating an order intent");
       return;
     }
-    if (!selectedSignal || !snapshot?.sodex) {
+    if (!selectedSignal || !selectedSodexSymbol) {
       setStatus("Live signal or SoDEX market data is not available");
       return;
     }
@@ -569,14 +610,18 @@ export function DashboardClient() {
         body: JSON.stringify({
           walletAddress: wallet,
           accountId: accountId ? Number(accountId) : undefined,
-          symbol: snapshot.sodex.symbol,
+          symbol: selectedSodexSymbol,
           side: selectedSignal.action,
           notionalUsd: Number(notionalUsd),
           orderType: "MARKET",
         }),
       });
       setIntent(data);
-      setStatus(data.executionMode === "dry-run" ? "Dry-run intent created; final SoDEX config missing" : "SoDEX intent ready for wallet signature");
+      setStatus(
+        data.executionMode === "dry-run"
+          ? `${selectedSignal.asset} dry-run intent created; final SoDEX config missing`
+          : `${selectedSignal.asset} SoDEX intent ready for wallet signature`
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Order intent failed");
     } finally {
@@ -708,9 +753,9 @@ export function DashboardClient() {
           <section className="grid min-h-[calc(100vh-8rem)] items-center gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <Panel className="p-7 lg:p-10">
               <StatusPill ok={Boolean(wallet)} label={wallet ? "wallet detected" : "wallet required"} />
-              <h1 className="mt-4 font-display text-5xl leading-none tracking-tight md:text-7xl">Wave 2 beta desk</h1>
+              <h1 className="mt-4 font-display text-5xl leading-none tracking-tight md:text-7xl">Production trading desk</h1>
               <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground">
-                {snapshot?.aiBrief ?? "WhaleMind is waiting for live SoSoValue, SSI, SoDEX, and ValueChain data."}
+                {displayBrief}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button type="button" onClick={connectWallet} disabled={isWalletBusy} className="h-12 rounded-full px-7">
@@ -733,6 +778,7 @@ export function DashboardClient() {
                   ["Assets", snapshot?.assets.length ?? 0],
                   ["Signals", snapshot?.signals.length ?? 0],
                   ["SSI", snapshot?.indices.length ?? 0],
+                  ["Macro", snapshot?.macro.days.length ?? 0],
                   ["News", snapshot?.news.length ?? 0],
                 ].map(([label, value]) => (
                   <div key={label} className="border border-foreground/10 p-4">
@@ -745,7 +791,7 @@ export function DashboardClient() {
                 <StatusPill ok={Boolean(snapshot?.config.sosovalueApi)} label="SoSoValue" />
                 <StatusPill ok={Boolean(snapshot?.sodex)} label="SoDEX" />
                 <StatusPill ok={Boolean(snapshot?.chain?.isLive)} label="ValueChain" />
-                <StatusPill ok={Boolean(snapshot?.config.mongodb)} label="MongoDB" />
+                <StatusPill ok={mongodbReady} label="MongoDB" />
               </div>
               {snapshot?.sourceNotes.length ? (
                 <div className="mt-5 flex flex-col gap-2 text-sm text-muted-foreground">
@@ -778,9 +824,9 @@ export function DashboardClient() {
                   <StatusPill ok={snapshot?.config.sodexEnvironment === "testnet"} label={snapshot?.config.sodexEnvironment ?? "mainnet"} />
                   <span className="font-mono text-xs text-muted-foreground">{status}</span>
                 </div>
-                <h1 className="font-display text-5xl leading-none tracking-tight md:text-7xl">Private beta desk</h1>
+                <h1 className="font-display text-5xl leading-none tracking-tight md:text-7xl">Production desk</h1>
                 <p className="mt-5 max-w-3xl text-base leading-relaxed text-muted-foreground">
-                  {snapshot?.aiBrief ?? "Waiting for live market brief."}
+                  {displayBrief}
                 </p>
               </Panel>
 
@@ -808,8 +854,8 @@ export function DashboardClient() {
               </Panel>
               <Panel>
                 <div className="text-xs font-mono uppercase text-muted-foreground">SoDEX route</div>
-                <div className="mt-2 font-display text-3xl">{snapshot?.sodex?.symbol ?? "unavailable"}</div>
-                <div className="mt-2 text-sm text-muted-foreground">{money(snapshot?.sodex?.lastPrice)}</div>
+                <div className="mt-2 font-display text-3xl">{selectedSodexSymbol ?? "unavailable"}</div>
+                <div className="mt-2 text-sm text-muted-foreground">{money(selectedSodexMarket?.lastPrice)}</div>
               </Panel>
               <Panel>
                 <div className="text-xs font-mono uppercase text-muted-foreground">Saved state</div>
@@ -870,11 +916,30 @@ export function DashboardClient() {
                   <SignalHistoryPanel asset={selectedSignal?.asset} history={selectedHistory} />
                 </section>
 
-                <section className="grid gap-5 lg:grid-cols-2">
+                <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
                   <Panel>
-                    <SectionHeading title="SoSoValue Indexes" caption="Live SSI market snapshots and constituent weights from the SoSoValue Index module." />
+                    <SectionHeading title="SoSoValue Indexes" caption="Live SSI market snapshots, constituent weights, and official daily klines from the SoSoValue Index module." />
                     {snapshot?.indices.length ? (
                       <div className="flex flex-col gap-4">
+                        {indexTrendChart.length ? (
+                          <div className="h-44 border border-foreground/10 p-3">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={indexTrendChart} margin={{ left: 0, right: 10, top: 8, bottom: 0 }}>
+                                <defs>
+                                  <linearGradient id="ssiTrendFill" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="var(--whale-info)" stopOpacity={0.35} />
+                                    <stop offset="95%" stopColor="var(--whale-info)" stopOpacity={0} />
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid stroke="var(--border)" vertical={false} />
+                                <XAxis dataKey="time" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                                <YAxis tickFormatter={(value) => compact(Number(value))} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
+                                <Tooltip content={<LiveTooltip />} />
+                                <Area type="monotone" dataKey="close" name="SSI close" stroke="var(--whale-info)" fill="url(#ssiTrendFill)" strokeWidth={2} dot={false} />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        ) : null}
                         {snapshot.indices.map((index) => (
                           <div key={index.ticker} className="border border-foreground/10 p-4">
                             <div className="mb-3 flex items-start justify-between gap-4">
@@ -908,21 +973,68 @@ export function DashboardClient() {
                     )}
                   </Panel>
 
-                  <Panel>
-                    <SectionHeading title="SoSoValue hot feed" />
-                    {snapshot?.news.length ? (
-                      <div className="divide-y divide-foreground/10">
-                        {snapshot.news.slice(0, 8).map((item) => (
-                          <a key={item.id} href={item.sourceUrl ?? "#"} target="_blank" rel="noreferrer" className="group flex items-start justify-between gap-4 py-3">
-                            <span className="text-sm leading-relaxed text-muted-foreground transition-colors group-hover:text-foreground">{item.title}</span>
-                            <ArrowRight data-icon="inline-end" className="mt-1 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <EmptyState text="SoSoValue did not return live hot news for this refresh." />
-                    )}
-                  </Panel>
+                  <div className="grid gap-5">
+                    <Panel>
+                      <SectionHeading title="Macro calendar" caption="Official SoSoValue macro events with optional event-history reads." />
+                      {snapshot?.macro.days.length ? (
+                        <div className="flex flex-col gap-3">
+                          {snapshot.macro.days.slice(0, 5).map((day) => (
+                            <div key={day.date} className="grid gap-2 border border-foreground/10 p-3 text-sm sm:grid-cols-[84px_1fr]">
+                              <span className="font-mono text-xs text-muted-foreground">{formatDate(day.date)}</span>
+                              <div className="flex flex-wrap gap-2">
+                                {day.events.slice(0, 5).map((event) => (
+                                  <Badge key={`${day.date}-${event}`} variant="secondary">
+                                    {event}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                          {snapshot.macro.tracked.length ? (
+                            <div className="grid gap-3 pt-2 md:grid-cols-2">
+                              {snapshot.macro.tracked.map((item) => (
+                                <div key={item.event} className="border border-foreground/10 p-3 text-sm">
+                                  <div className="font-medium">{item.event}</div>
+                                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                                    <span>Actual {macroValue(item.latest?.actual)}</span>
+                                    <span>Forecast {macroValue(item.latest?.forecast)}</span>
+                                    <span>Prev {macroValue(item.latest?.previous)}</span>
+                                  </div>
+                                  <div className="mt-2 font-mono text-xs text-muted-foreground">
+                                    {item.latest ? formatDate(item.latest.date) : "history unavailable"}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <EmptyState text="SoSoValue did not return macro calendar rows for this refresh." />
+                      )}
+                    </Panel>
+
+                    <Panel>
+                      <SectionHeading title="SoSoValue hot feed" />
+                      {snapshot?.news.length ? (
+                        <div className="divide-y divide-foreground/10">
+                          {snapshot.news.slice(0, 8).map((item) =>
+                            item.sourceUrl ? (
+                              <a key={item.id} href={item.sourceUrl} target="_blank" rel="noreferrer" className="group flex items-start justify-between gap-4 py-3">
+                                <span className="text-sm leading-relaxed text-muted-foreground transition-colors group-hover:text-foreground">{item.title}</span>
+                                <ArrowRight data-icon="inline-end" className="mt-1 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                              </a>
+                            ) : (
+                              <div key={item.id} className="flex items-start justify-between gap-4 py-3">
+                                <span className="text-sm leading-relaxed text-muted-foreground">{item.title}</span>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      ) : (
+                        <EmptyState text="SoSoValue did not return live hot news for this refresh." />
+                      )}
+                    </Panel>
+                  </div>
                 </section>
               </TabsContent>
 
@@ -996,12 +1108,16 @@ export function DashboardClient() {
                         <span className="font-mono">{selectedSignal?.asset ?? "unavailable"}</span>
                       </div>
                       <div className="mt-2 flex justify-between gap-4">
-                        <span className="text-muted-foreground">Price</span>
+                        <span className="text-muted-foreground">SoSoValue price</span>
                         <span className="font-mono">{money(selectedMarket?.price)}</span>
                       </div>
                       <div className="mt-2 flex justify-between gap-4">
+                        <span className="text-muted-foreground">SoDEX price</span>
+                        <span className="font-mono">{money(selectedSodexMarket?.lastPrice)}</span>
+                      </div>
+                      <div className="mt-2 flex justify-between gap-4">
                         <span className="text-muted-foreground">Route</span>
-                        <span className="font-mono">{snapshot?.sodex?.symbol ?? "unavailable"}</span>
+                        <span className="font-mono">{selectedSodexSymbol ?? "unavailable"}</span>
                       </div>
                     </div>
                     <Button type="button" onClick={createOrderIntent} disabled={isOrderBusy || !canCreateOrderIntent} className="h-12 w-full rounded-full">
@@ -1104,7 +1220,7 @@ export function DashboardClient() {
                 </Panel>
 
                 <Panel>
-                  <SectionHeading title="Portfolio snapshot" caption="Manual beta snapshot for portfolio-aware recommendations." />
+                  <SectionHeading title="Portfolio snapshot" caption="Manual wallet snapshot for portfolio-aware recommendations." />
                   <div className="flex flex-col gap-3">
                     <div>
                       <label className="mb-2 block text-xs font-mono text-muted-foreground">Quantity</label>
@@ -1162,17 +1278,19 @@ export function DashboardClient() {
 
               <TabsContent value="readiness" className="mt-0 flex flex-col gap-5">
                 <Panel>
-                  <SectionHeading title="Live source checks" caption="Wave 2 treats persistence, wallet auth, signed submission, and alert delivery as first-class readiness gates." />
+                  <SectionHeading title="Live source checks" caption="Persistence, wallet auth, signed submission, macro data, and alert delivery are production readiness gates." />
                   <div className="flex flex-wrap gap-2">
                     <StatusPill ok={Boolean(snapshot?.config.sosovalueApi)} label="SoSoValue key" />
+                    <StatusPill ok={!sosoRateLimit?.cooldownUntil} label={sosoQuotaLabel} />
                     <StatusPill ok={Boolean(snapshot?.config.openaiApi)} label="OpenAI key" />
-                    <StatusPill ok={Boolean(snapshot?.config.mongodb)} label="MongoDB URI" />
+                    <StatusPill ok={mongodbReady} label="MongoDB" />
                     <StatusPill ok={Boolean(snapshot?.config.walletSessionSecret)} label="session secret" />
-                    <StatusPill ok={Boolean(snapshot?.config.sodexAccountId)} label="SoDEX account" />
-                    <StatusPill ok={Boolean(snapshot?.config.sodexApiKeyName || !snapshot?.config.sodexLiveExecution)} label="SoDEX key mode" />
-                    <StatusPill ok={Boolean(snapshot?.config.sodexVerifyingContract)} label="SoDEX contract" />
+                    <StatusPill ok={Boolean(snapshot?.config.sodexAccountId || !snapshot?.config.sodexLiveExecution)} label="SoDEX account gate" />
+                    <StatusPill ok={Boolean(snapshot && !snapshot.config.sodexApiKeyName)} label={snapshot?.config.sodexApiKeyName ? "SoDEX key preview" : "SoDEX master signing"} />
+                    <StatusPill ok={Boolean(snapshot?.config.sodexVerifyingContract || !snapshot?.config.sodexLiveExecution)} label="SoDEX contract gate" />
                     <StatusPill ok={Boolean(snapshot?.chain?.isLive)} label="ValueChain RPC" />
-                    <StatusPill ok={Boolean(snapshot?.config.alertDelivery.telegram || snapshot?.config.alertDelivery.discord)} label="alert delivery" />
+                    <StatusPill ok label="in-app alerts" />
+                    <StatusPill ok={Boolean(snapshot?.config.sosovalueRefreshSeconds)} label={`${snapshot?.config.sosovalueRefreshSeconds ?? 60}s server refresh`} />
                   </div>
                   {snapshot?.sourceNotes.length ? (
                     <div className="mt-5 flex flex-col gap-2 text-sm text-muted-foreground">
