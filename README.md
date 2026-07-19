@@ -14,11 +14,11 @@ WhaleMind turns SoSoValue market intelligence, ETF flows, news, SoDEX order-book
 SoSoValue data -> WhaleMind signal engine -> AI explanation -> SoDEX order intent -> wallet confirmation
 ```
 
-## Wave 1 Status
+## Wave 3 Status
 
-This repository started as the Wave 1 prototype for the SoSoValue/SoDEX buildathon and now includes the Wave 3 production workflow.
+WhaleMind AI is now in Wave 3 final production status. The current shipped app is the production workflow deployed at `https://whale-mind-ai.vercel.app`, with live SoSoValue research, Macro and SSI reads, per-asset SoDEX routing, wallet-authenticated saved state, production health checks, and guarded EIP-712 execution.
 
-Completed in Wave 1:
+Wave 1 foundation completed:
 
 - Preserved the v0 landing template's animation flow, visual rhythm, media assets, section order, and color system.
 - Rebranded the product copy and UX around WhaleMind AI without removing the original image/video sections.
@@ -63,7 +63,7 @@ Completed in Wave 1:
 - Removed raw upstream/provider error text from public dashboard and signal notes.
 - Upgraded the production dependency baseline and verified the production audit is clean.
 
-## Completed in Wave 3:
+## Wave 3 Final Production Scope
 
 - Verified the current SoSoValue API docs online for base URL, `x-soso-api-key`, unified response format, 20 requests/minute rate limit, Index endpoints, daily Index klines, and Macro endpoints.
 - Added official SoSoValue Macro calendar support through `GET /macro/events` and tracked event history through `GET /macro/events/{event}/history`.
