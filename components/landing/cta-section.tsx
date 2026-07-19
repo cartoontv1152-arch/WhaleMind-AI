@@ -50,7 +50,7 @@ export function CtaSection() {
             <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
               {/* Left content */}
               <div className="flex-1">
-                <h2 className="text-6xl md:text-7xl lg:text-[72px] font-display tracking-tight mb-8 leading-[0.95]">
+                <h2 aria-label="Ready to trade with WhaleMind?" className="text-6xl md:text-7xl lg:text-[72px] font-display tracking-tight mb-8 leading-[0.95]">
                   Ready to trade
                   <br />
                   with WhaleMind?
@@ -82,7 +82,7 @@ export function CtaSection() {
                 </div>
 
                 <p className="text-sm text-muted-foreground mt-8 font-mono">
-                  Wave 1 prototype: live reads, guarded execution, production-ready roadmap
+                  Final release: live reads, macro intelligence, guarded execution
                 </p>
               </div>
 

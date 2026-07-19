@@ -99,7 +99,7 @@ export function HowItWorksSection() {
             isVisible ? "opacity-100" : "opacity-0"
           }`}>
             <img
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/tree-uAia6REvB137CQyHFCf0za3O6h2zKO.png"
+              src="/images/isolated.jpg"
               alt=""
               aria-hidden="true"
               className="absolute bottom-0 left-0 w-full h-full object-contain object-bottom"

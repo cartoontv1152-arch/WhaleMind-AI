@@ -1,49 +1,33 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Activity, CheckCircle2, Database, ShieldCheck } from "lucide-react";
 
-const testimonials = [
+const proofItems = [
   {
-    quote: "WhaleMind gives me the part I usually miss: why the flow matters and what risk is attached before I click trade.",
-    author: "Maya Rao",
-    role: "Macro trader",
-    company: "Solo Desk",
-    metric: { value: "84%", label: "Top BTC confidence" },
+    title: "No blind orders",
+    detail: "Execution is split into signal review, simulator, EIP-712 intent, wallet signature, and a live-submit gate.",
+    icon: ShieldCheck,
   },
   {
-    quote: "The SoSoValue context plus SoDEX intent flow finally connects research and execution without hiding the decision.",
-    author: "Arjun Mehta",
-    role: "Builder",
-    company: "Onchain Lab",
-    metric: { value: "30s", label: "Signal refresh" },
+    title: "Live data only",
+    detail: "Market assets, ETF flows, hot news, SSI indexes, macro events, SoDEX markets, and chain status come through server routes.",
+    icon: Activity,
   },
   {
-    quote: "I like that it refuses to treat an AI signal as an order. The wallet confirmation makes the product feel serious.",
-    author: "Elena Cruz",
-    role: "Risk lead",
-    company: "Vault Nine",
-    metric: { value: "0", label: "Blind orders" },
+    title: "Durable state gate",
+    detail: "Wallet state and signal history use MongoDB in production; degraded memory mode is surfaced as a readiness warning.",
+    icon: Database,
   },
   {
-    quote: "A one-person finance desk needs this exact loop: scan the market, explain the setup, simulate, then route.",
-    author: "Noah Kim",
-    role: "Founder",
-    company: "Signal Works",
-    metric: { value: "4", label: "Action states" },
+    title: "Deploy checks",
+    detail: "The health endpoint reports required env readiness without exposing secrets or spending extra SoSoValue quota.",
+    icon: CheckCircle2,
   },
 ];
 
-function asciiPattern() {
-  return Array.from({ length: 60 }, (_, row) =>
-    Array.from({ length: 100 }, (_, col) => ((row * 37 + col * 19 + row * col) % 10 > 6 ? '"' : ' ')).join("")
-  ).join("\n");
-}
-
 export function TestimonialsSection() {
-  const [activeIndex, setActiveIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-  const [direction, setDirection] = useState<"left" | "right">("right");
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -58,182 +42,60 @@ export function TestimonialsSection() {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setDirection("right");
-      setActiveIndex((prev) => (prev + 1) % testimonials.length);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const goTo = (index: number) => {
-    setDirection(index > activeIndex ? "right" : "left");
-    setActiveIndex(index);
-  };
-
-  const goPrev = () => {
-    setDirection("left");
-    setActiveIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
-  };
-
-  const goNext = () => {
-    setDirection("right");
-    setActiveIndex((prev) => (prev + 1) % testimonials.length);
-  };
-
-  const activeTestimonial = testimonials[activeIndex];
-
   return (
-    <section ref={sectionRef} className="relative py-32 lg:py-40 bg-foreground text-background overflow-hidden">
-      {/* ASCII background pattern */}
-      <div className="absolute inset-0 font-mono text-[10px] text-background/[0.02] leading-tight overflow-hidden whitespace-pre select-none">
-        {asciiPattern()}
-      </div>
+    <section ref={sectionRef} className="relative overflow-hidden bg-foreground py-32 text-background lg:py-40">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:72px_72px]"
+      />
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-20">
+      <div className="relative z-10 mx-auto max-w-[1400px] px-6 lg:px-12">
+        <div className="mb-16 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
           <div>
-            <span className="inline-flex items-center gap-3 text-sm font-mono text-background/40 mb-4">
-              <span className="w-12 h-px bg-background/20" />
-              Users
+            <span className="mb-4 inline-flex items-center gap-3 font-mono text-sm text-background/40">
+              <span className="h-px w-12 bg-background/20" />
+              Production proof
             </span>
-            <h2 className={`text-4xl lg:text-5xl font-display transition-all duration-1000 ${
-              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-            }`}>
-              Built for traders
-              <span className="text-background/40"> who act.</span>
+            <h2
+              aria-label="Built for real execution."
+              className={`font-display text-5xl leading-[0.95] tracking-tight transition-all duration-1000 md:text-7xl lg:text-[112px] ${
+                isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+              }`}
+            >
+              Built for real
+              <br />
+              <span className="text-background/40">execution.</span>
             </h2>
           </div>
-          
-          {/* Navigation arrows */}
-          <div className="hidden lg:flex items-center gap-2">
-            <button
-              onClick={goPrev}
-              className="p-4 border border-background/20 hover:bg-background/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <button
-              onClick={goNext}
-              className="p-4 border border-background/20 hover:bg-background/10 transition-colors"
-            >
-              <ArrowRight className="w-5 h-5" />
-            </button>
-          </div>
+          <p
+            className={`max-w-2xl text-xl leading-relaxed text-background/60 transition-all delay-150 duration-1000 ${
+              isVisible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+            }`}
+          >
+            WhaleMind shows the controls a production trading assistant needs: source visibility, wallet ownership,
+            persistence checks, and a guarded order path.
+          </p>
         </div>
 
-        {/* Main content - Split layout */}
-        <div className="grid lg:grid-cols-12 gap-12 lg:gap-20">
-          {/* Quote side */}
-          <div className="lg:col-span-7 relative">
-            {/* Large quote mark */}
-            <span className="absolute -left-4 -top-8 text-[200px] font-display text-background/5 leading-none select-none">
-              &ldquo;
-            </span>
-            
-            <div className="relative">
-              <blockquote 
-                key={activeIndex}
-                className="text-3xl lg:text-4xl xl:text-5xl font-display leading-[1.2] tracking-tight animate-fadeSlideIn"
+        <div className="grid gap-4 md:grid-cols-2">
+          {proofItems.map((item, index) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.title}
+                className={`border border-background/15 bg-background/[0.04] p-6 transition-all duration-700 ${
+                  isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+                }`}
+                style={{ transitionDelay: `${index * 80 + 200}ms` }}
               >
-                {activeTestimonial.quote}
-              </blockquote>
-
-              {/* Author */}
-              <div className="mt-12 flex items-center gap-6">
-                <div className="w-14 h-14 rounded-full bg-background/10 flex items-center justify-center">
-                  <span className="font-display text-xl">
-                    {activeTestimonial.author.charAt(0)}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-lg font-medium">{activeTestimonial.author}</p>
-                  <p className="text-background/60">
-                    {activeTestimonial.role}, {activeTestimonial.company}
-                  </p>
-                </div>
+                <Icon className="mb-8 h-6 w-6 text-whale-accent" />
+                <h3 className="font-display text-3xl">{item.title}</h3>
+                <p className="mt-4 text-sm leading-relaxed text-background/60">{item.detail}</p>
               </div>
-            </div>
-          </div>
-
-          {/* Metric cards side */}
-          <div className="lg:col-span-5 flex flex-col justify-center gap-6">
-            {/* Active metric - Large */}
-            <div 
-              key={`metric-${activeIndex}`}
-              className="p-10 border border-background/20 bg-background/5 animate-fadeSlideIn"
-            >
-              <span className="text-7xl lg:text-8xl font-display block mb-4">
-                {activeTestimonial.metric.value}
-              </span>
-              <span className="text-lg text-background/60">
-                {activeTestimonial.metric.label}
-              </span>
-            </div>
-
-            {/* Progress indicators */}
-            <div className="flex gap-2">
-              {testimonials.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => goTo(idx)}
-                  className="flex-1 h-1 bg-background/20 overflow-hidden"
-                >
-                  <div 
-                    className={`h-full bg-background transition-all duration-300 ${
-                      idx === activeIndex ? "w-full" : idx < activeIndex ? "w-full opacity-50" : "w-0"
-                    }`}
-                    style={idx === activeIndex ? { animation: "progress 8s linear forwards" } : {}}
-                  />
-                </button>
-              ))}
-            </div>
-
-            {/* Company list */}
-            <div className="mt-4 pt-6 border-t border-background/10">
-              <span className="text-xs font-mono text-background/30 uppercase tracking-widest block mb-4">
-                Featured desks
-              </span>
-              <div className="flex flex-wrap gap-3">
-                {testimonials.map((t, idx) => (
-                  <button
-                    key={t.company}
-                    onClick={() => goTo(idx)}
-                    className={`px-4 py-2 text-sm border transition-all ${
-                      idx === activeIndex 
-                        ? "border-background/40 text-background" 
-                        : "border-background/10 text-background/40 hover:border-background/30"
-                    }`}
-                  >
-                    {t.company}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes fadeSlideIn {
-          from {
-            opacity: 0;
-            transform: translateX(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        .animate-fadeSlideIn {
-          animation: fadeSlideIn 0.5s ease-out forwards;
-        }
-        @keyframes progress {
-          from { width: 0%; }
-          to { width: 100%; }
-        }
-      `}</style>
     </section>
   );
 }

@@ -13,7 +13,7 @@ const features = [
     number: "02",
     title: "SoSoValue Context",
     description: "Fuse ETF flows, hot news, sector data, market snapshots, and narrative shifts into one research layer.",
-    stats: { value: "30s", label: "market refresh" },
+    stats: { value: "60s", label: "rate-aware refresh" },
   },
   {
     number: "03",
@@ -161,6 +161,7 @@ export function FeaturesSection() {
                 Signals
               </span>
               <h2
+                aria-label="Intelligent trading."
                 className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
                   isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                 }`}
@@ -210,7 +211,7 @@ export function FeaturesSection() {
             {/* Right: mirrored image, full height */}
             <div className="hidden lg:block relative w-[42%] shrink-0 overflow-hidden">
               <img
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Upscaled%20Image%20%2812%29-ng3RrNnsPMJ5CrtOjcPTmhHg01W11q.png"
+                src="/images/permissions.jpg"
                 alt=""
                 aria-hidden="true"
                 className="absolute inset-0 w-full h-full object-cover object-center"

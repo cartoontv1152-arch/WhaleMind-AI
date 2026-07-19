@@ -16,24 +16,13 @@ const footerLinks = {
     { name: "SoDEX REST", href: "#integrations" },
     { name: "ValueChain", href: "#infra" },
   ],
-  Company: [
-    { name: "About", href: "#" },
-    { name: "Blog", href: "#" },
-    { name: "Careers", href: "#", badge: "Hiring" },
-    { name: "Contact", href: "#" },
-  ],
-  Legal: [
-    { name: "Privacy", href: "#" },
-    { name: "Terms", href: "#" },
+  Operations: [
+    { name: "Dashboard", href: "/dashboard" },
+    { name: "Readiness", href: "/dashboard" },
     { name: "Security", href: "#security" },
+    { name: "Production health", href: "/api/health" },
   ],
 };
-
-const socialLinks = [
-  { name: "Twitter", href: "#" },
-  { name: "GitHub", href: "#" },
-  { name: "LinkedIn", href: "#" },
-];
 
 function AnimatedWaveCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -97,7 +86,7 @@ export function FooterSection() {
       {/* Panoramic banner image */}
       <div className="relative w-full h-[340px] md:h-[420px] overflow-hidden">
         <img
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Upscaled%20Image%20%2810%29-UnDKstODkIENp5xqTYUEpt0Sm8tNOw.png"
+          src="/images/whale.png"
           alt="Bioluminescent landscape"
           className="w-full h-full object-cover object-center"
         />
@@ -114,7 +103,7 @@ export function FooterSection() {
           <div className="grid grid-cols-2 md:grid-cols-6 gap-12 lg:gap-8">
             {/* Brand Column */}
             <div className="col-span-2">
-              <a href="#" className="inline-flex items-center gap-2 mb-6">
+              <a href="/" className="inline-flex items-center gap-2 mb-6">
                 <span className="text-2xl font-display text-white">WhaleMind</span>
                 <span className="text-xs text-white/40 font-mono">AI</span>
               </a>
@@ -123,18 +112,23 @@ export function FooterSection() {
                 AI-powered on-chain trading intelligence for SoSoValue research and SoDEX execution.
               </p>
 
-              {/* Social Links */}
-              <div className="flex gap-6">
-                {socialLinks.map((link) => (
-                  <a
-                    key={link.name}
-                    href={link.href}
-                    className="text-sm text-white/40 hover:text-white transition-colors flex items-center gap-1 group"
-                  >
-                    {link.name}
-                    <ArrowUpRight className="w-3 h-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                  </a>
-                ))}
+              <div className="flex flex-wrap gap-6">
+                <a
+                  href="https://sosovalue-1.gitbook.io/sosovalue-api-doc"
+                  className="text-sm text-white/40 hover:text-white transition-colors flex items-center gap-1 group"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  SoSoValue docs
+                  <ArrowUpRight className="w-3 h-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                </a>
+                <a
+                  href="/api/health"
+                  className="text-sm text-white/40 hover:text-white transition-colors flex items-center gap-1 group"
+                >
+                  Health
+                  <ArrowUpRight className="w-3 h-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                </a>
               </div>
             </div>
 
@@ -150,11 +144,6 @@ export function FooterSection() {
                         className="text-sm text-white/40 hover:text-white transition-colors inline-flex items-center gap-2"
                       >
                         {link.name}
-                        {"badge" in link && link.badge && (
-                          <span className="text-xs px-2 py-0.5 bg-white text-black rounded-full">
-                            {link.badge}
-                          </span>
-                        )}
                       </a>
                     </li>
                   ))}

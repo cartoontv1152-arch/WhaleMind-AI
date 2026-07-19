@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Link2, Loader2, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { normalizeAiBrief } from "@/lib/brief";
 import { VALUECHAIN_MAINNET } from "@/lib/valuechain";
 import type { WhaleMindSnapshot } from "@/lib/whalemind-types";
 
@@ -77,14 +78,14 @@ export function LiveIntelligencePanel() {
         const data = (await response.json()) as WhaleMindSnapshot;
         if (!mounted) return;
         setSnapshot(data);
-        setStatus(data.state === "live" ? "Live on-chain intelligence" : "Protected live/fallback mix");
+        setStatus(data.state === "live" ? "Live on-chain intelligence" : "Live sources partial");
       } catch {
         if (mounted) setStatus("Waiting for providers");
       }
     };
 
     load();
-    const interval = window.setInterval(load, 30_000);
+    const interval = window.setInterval(load, 60_000);
     return () => {
       mounted = false;
       window.clearInterval(interval);
@@ -94,6 +95,10 @@ export function LiveIntelligencePanel() {
   const topSignal = snapshot?.signals[0];
   const topWhale = snapshot?.whaleEvents[0];
   const btc = snapshot?.assets.find((asset) => asset.symbol === "BTC") ?? snapshot?.assets[0];
+  const displayBrief = useMemo(
+    () => normalizeAiBrief(snapshot?.aiBrief, "AI brief will appear after the first market snapshot."),
+    [snapshot?.aiBrief]
+  );
 
   const signalTone = useMemo(() => {
     if (!topSignal) return "text-muted-foreground";
@@ -147,11 +152,11 @@ export function LiveIntelligencePanel() {
       <div className="bg-foreground/[0.02] border border-foreground/10 p-8 flex flex-col justify-between gap-8">
         <div>
           <div className="text-sm text-muted-foreground font-mono mb-2">Whale activity</div>
-          <div className="text-base text-foreground mb-6">{topWhale?.summary ?? "Scanning large prints"}</div>
+          <div className="text-base text-foreground mb-6">{topWhale?.summary ?? "Waiting for live SoDEX prints"}</div>
           <div className="h-1 w-full bg-foreground/10 overflow-hidden">
             <div
               className="h-full bg-whale-accent transition-all duration-500"
-              style={{ width: `${topWhale?.confidence ?? 20}%` }}
+              style={{ width: `${topWhale?.confidence ?? 0}%` }}
             />
           </div>
         </div>
@@ -174,15 +179,15 @@ export function LiveIntelligencePanel() {
             </div>
             <div>
               <span className="block text-xs text-muted-foreground">SoDEX route</span>
-              <span className="text-2xl font-display">{snapshot?.sodex.symbol ?? "vBTC_vUSDC"}</span>
+              <span className="text-2xl font-display">{snapshot?.sodex?.symbol ?? "awaiting route"}</span>
               <span className="block text-xs text-muted-foreground">
-                {snapshot?.chain.isLive ? `Block ${snapshot.chain.blockNumber}` : "RPC guarded"}
+                {snapshot?.chain?.isLive ? `Block ${snapshot.chain.blockNumber}` : "RPC guarded"}
               </span>
             </div>
           </div>
 
           <p className="text-sm text-muted-foreground leading-relaxed min-h-14">
-            {snapshot?.aiBrief ?? "AI brief will appear after the first market snapshot."}
+            {displayBrief}
           </p>
         </div>
 
@@ -216,11 +221,15 @@ export function LiveIntelligencePanel() {
       </div>
 
       <div className="lg:col-span-3 mt-4 pt-8 border-t border-foreground/10 flex flex-wrap items-center gap-x-10 gap-y-3 text-sm font-mono text-muted-foreground">
-        {(snapshot?.news ?? []).slice(0, 4).map((item) => (
-          <a key={item.id} href={item.sourceUrl ?? "#"} target="_blank" rel="noreferrer" className="hover:text-foreground transition-colors">
-            {item.title}
-          </a>
-        ))}
+        {(snapshot?.news ?? []).slice(0, 4).map((item) =>
+          item.sourceUrl ? (
+            <a key={item.id} href={item.sourceUrl} target="_blank" rel="noreferrer" className="hover:text-foreground transition-colors">
+              {item.title}
+            </a>
+          ) : (
+            <span key={item.id}>{item.title}</span>
+          )
+        )}
       </div>
     </div>
   );

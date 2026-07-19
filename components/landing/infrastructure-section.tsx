@@ -53,7 +53,7 @@ export function InfrastructureSection() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
               <img
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/world-3i68QNWJwmO7W19ztZWbevAwJQHzYL.png"
+                src="/images/bridge.png"
                 alt="Global network sphere"
                 className="w-full h-full object-contain object-center"
               />
@@ -61,7 +61,7 @@ export function InfrastructureSection() {
 
             {/* Titre + description empilés */}
             <div className="flex flex-col justify-center">
-              <h2 className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
+              <h2 aria-label="On-chain by default." className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
               }`}>
                 On-chain by
@@ -157,15 +157,15 @@ export function InfrastructureSection() {
             <div className={`p-8 border border-foreground/10 bg-foreground/[0.02] transition-all duration-700 delay-100 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
-              <span className="text-5xl lg:text-6xl font-display">1200</span>
-              <span className="block text-sm text-muted-foreground mt-2">SoDEX REST budget</span>
+              <span className="text-5xl lg:text-6xl font-display">20/min</span>
+              <span className="block text-sm text-muted-foreground mt-2">SoSoValue key limit</span>
             </div>
             
             <div className={`p-8 border border-foreground/10 bg-foreground/[0.02] transition-all duration-700 delay-200 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
-              <span className="text-5xl lg:text-6xl font-display">30s</span>
-              <span className="block text-sm text-muted-foreground mt-2">Market refresh target</span>
+              <span className="text-5xl lg:text-6xl font-display">60s</span>
+              <span className="block text-sm text-muted-foreground mt-2">Server refresh floor</span>
             </div>
           </div>
         </div>

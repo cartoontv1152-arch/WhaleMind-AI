@@ -47,7 +47,7 @@ export function DevelopersSection() {
         }`}
       >
         <img
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Upscaled%20Image%20%2813%29-OQ2DiR3ElVsUg8kTvTL1kC5A3Q6maM.png"
+          src="/images/audit.jpg"
           alt=""
           aria-hidden="true"
           className="w-full h-full object-cover object-left-top"
@@ -70,7 +70,7 @@ export function DevelopersSection() {
             <span className="w-8 h-px bg-foreground/30" />
             Builder system
           </span>
-          <h2 className="text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9]">
+          <h2 aria-label="Build the analyst. Ship the desk." className="text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9]">
             Build the analyst.
             <br />
             <span className="text-muted-foreground">Ship the desk.</span>

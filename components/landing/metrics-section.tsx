@@ -5,25 +5,25 @@ import { LiveIntelligencePanel } from "@/components/landing/live-intelligence-pa
 
 const metrics = [
   { 
-    value: 12847392, 
+    value: 100000,
     suffix: "", 
     prefix: "",
-    label: "Tasks completed today",
-    sublabel: "by 23,847 active agents",
+    label: "SoSoValue monthly quota",
+    sublabel: "per production API key",
   },
   { 
-    value: 99, 
-    suffix: ".99%", 
+    value: 100,
+    suffix: "%",
     prefix: "",
-    label: "Availability",
-    sublabel: "across all regions",
+    label: "Wallet confirmation",
+    sublabel: "before live SoDEX submission",
   },
   { 
-    value: 340, 
-    suffix: "ms", 
-    prefix: "<",
-    label: "Average execution",
-    sublabel: "p99 latency",
+    value: 60,
+    suffix: "s",
+    prefix: "",
+    label: "Server refresh floor",
+    sublabel: "rate-aware dashboard cadence",
   },
 ];
 
@@ -257,7 +257,7 @@ export function MetricsSection() {
               </span>
             </div>
 
-            <h2 className={`text-6xl md:text-7xl lg:text-[140px] font-display tracking-tight leading-[0.95] transition-all duration-1000 ${
+            <h2 aria-label="Real-time market mind." className={`text-6xl md:text-7xl lg:text-[140px] font-display tracking-tight leading-[0.95] transition-all duration-1000 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
               Real-time
@@ -272,7 +272,7 @@ export function MetricsSection() {
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
           <img
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/real-time-graph-INFmn3u0MlUwvNPynoIhwxtPaPjxM5.png"
+            src="/images/shield.png"
             alt=""
             aria-hidden="true"
             className="w-full h-auto object-cover"

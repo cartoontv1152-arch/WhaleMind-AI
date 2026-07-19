@@ -9,18 +9,19 @@ const plans = [
     description: "Working prototype for buildathon submission",
     price: { monthly: 0, annual: 0 },
     features: [
-      "SoSoValue live/fallback intelligence",
+      "SoSoValue live-source intelligence",
       "SoDEX market route preview",
       "ValueChain wallet switching",
       "AI signal dashboard",
       "README roadmap",
     ],
     cta: "View prototype",
+    href: "#features",
     highlight: false,
   },
   {
     name: "Wave 2",
-    description: "Private beta with alerts and saved desks",
+    description: "Wallet workspace with alerts and saved desks",
     price: { monthly: 79, annual: 65 },
     features: [
       "Wallet auth and watchlists",
@@ -28,11 +29,11 @@ const plans = [
       "Telegram or Discord alerts",
       "Portfolio-aware risk scoring",
       "Signed SoDEX test orders",
-      "Narrative trend pages",
       "Backtested simulator",
     ],
-    cta: "Next milestone",
-    highlight: true,
+    cta: "View security",
+    href: "#security",
+    highlight: false,
   },
   {
     name: "Wave 3",
@@ -40,16 +41,17 @@ const plans = [
     price: { monthly: null, annual: null },
     features: [
       "Live SoDEX execution guard",
-      "Advanced whale wallet ranking",
-      "Copy-trade strategy templates",
-      "Premium AI analyst chat",
-      "Multi-asset execution",
-      "Team risk approvals",
-      "Usage billing",
-      "Public launch analytics",
+      "SoSoValue macro calendar",
+      "Official SSI kline trend",
+      "Per-asset SoDEX routes",
+      "Production health endpoint",
+      "MongoDB readiness checks",
+      "Rate-limit observability",
+      "China-ready bundled media",
     ],
-    cta: "Final product",
-    highlight: false,
+    cta: "Current release",
+    href: "/dashboard",
+    highlight: true,
   },
 ];
 
@@ -79,7 +81,7 @@ export function PricingSection() {
               <span className="w-12 h-px bg-foreground/30" />
               Roadmap
             </span>
-            <h2 className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
+            <h2 aria-label="Ship in waves." className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
               Ship in
@@ -121,7 +123,7 @@ export function PricingSection() {
                   <div className="absolute -top-4 left-8 right-8 flex justify-center">
                     <span className="inline-flex items-center gap-2 px-4 py-2 bg-foreground text-background text-xs font-mono uppercase tracking-widest">
                       <Zap className="w-3 h-3" />
-                      Current focus
+                      Current release
                     </span>
                   </div>
                 )}
@@ -144,7 +146,7 @@ export function PricingSection() {
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2 font-mono">
-                      {index === 0 ? "May 2026 prototype" : index === 1 ? "Beta milestone" : "Production launch"}
+                      {index === 0 ? "May 2026 prototype" : index === 1 ? "Workspace complete" : "Production launch"}
                     </p>
                   </div>
 
@@ -159,7 +161,8 @@ export function PricingSection() {
                   </ul>
 
                   {/* CTA */}
-                  <button
+                  <a
+                    href={plan.href}
                     className={`w-full py-4 flex items-center justify-center gap-2 text-sm font-medium transition-all group ${
                       plan.highlight
                         ? "bg-foreground text-background hover:bg-foreground/90"
@@ -168,7 +171,7 @@ export function PricingSection() {
                   >
                     {plan.cta}
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </button>
+                  </a>
                 </div>
               </div>
             ))}
@@ -193,7 +196,7 @@ export function PricingSection() {
               SoDEX order intents
             </span>
           </div>
-          <a href="#" className="text-sm underline underline-offset-4 hover:text-foreground transition-colors">
+          <a href="#developers" className="text-sm underline underline-offset-4 hover:text-foreground transition-colors">
             Compare wave scope
           </a>
         </div>
