@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const INTELLIGENCE_CACHE_MS = 30_000;
+const INTELLIGENCE_CACHE_MS = 60_000;
 let cachedSnapshot: { expiresAt: number; data: Awaited<ReturnType<typeof getWhaleMindSnapshot>> } | undefined;
 let inFlightSnapshot: Promise<Awaited<ReturnType<typeof getWhaleMindSnapshot>>> | undefined;
 
@@ -16,7 +16,7 @@ export async function GET() {
     if (cachedSnapshot && cachedSnapshot.expiresAt > now) {
       return NextResponse.json(cachedSnapshot.data, {
         headers: {
-          "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
         },
       });
     }
@@ -31,7 +31,7 @@ export async function GET() {
 
     return NextResponse.json(snapshot, {
       headers: {
-        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
       },
     });
   } catch {

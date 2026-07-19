@@ -1,3 +1,5 @@
+import { randomUUID } from "crypto";
+
 import type {
   AiSignal,
   BacktestResult,
@@ -13,6 +15,10 @@ import type {
 const MAX_SAVED_SIGNALS = 50;
 const MAX_BACKTESTS = 30;
 const ALERT_COOLDOWN_MS = 15 * 60 * 1000;
+
+function stateId(prefix: string, asset: string) {
+  return `${prefix}-${asset.trim().toLowerCase()}-${randomUUID()}`;
+}
 
 export function normalizeWalletAddress(walletAddress: string) {
   return walletAddress.trim().toLowerCase();
@@ -61,7 +67,7 @@ export function mergeUserBetaState(current: UserBetaState, next: UserBetaState):
 
 export function saveSignalToState(state: UserBetaState, signal: AiSignal, sourceGeneratedAt: string): UserBetaState {
   const saved: SavedSignal = {
-    id: `${signal.asset.toLowerCase()}-${Date.now().toString(36)}`,
+    id: stateId("signal", signal.asset),
     savedAt: new Date().toISOString(),
     signal,
     sourceGeneratedAt,
@@ -149,7 +155,7 @@ export function runSignalBacktest({
     estimatedPnlPct >= takeProfitPct ? "take-profit" : estimatedPnlPct <= -Math.abs(stopLossPct) ? "stop-loss" : "open";
 
   return {
-    id: `backtest-${signal.asset.toLowerCase()}-${Date.now().toString(36)}`,
+    id: stateId("backtest", signal.asset),
     asset: signal.asset,
     action: signal.action,
     createdAt: new Date().toISOString(),
@@ -218,7 +224,7 @@ function sanitizeSavedSignal(item: unknown): SavedSignal | undefined {
   const saved = item as SavedSignal;
   if (!saved.signal?.asset) return undefined;
   return {
-    id: saved.id || `${saved.signal.asset.toLowerCase()}-${Date.now().toString(36)}`,
+    id: saved.id || stateId("signal", saved.signal.asset),
     savedAt: saved.savedAt || new Date().toISOString(),
     signal: saved.signal,
     sourceGeneratedAt: saved.sourceGeneratedAt || saved.savedAt || new Date().toISOString(),
@@ -235,7 +241,7 @@ function sanitizeAlert(item: unknown): UserAlert | undefined {
   const channel = (["in-app", "telegram", "discord"] as const).includes(alert.channel) ? alert.channel : "in-app";
 
   return {
-    id: alert.id || `alert-${String(alert.asset).toLowerCase()}-${Date.now().toString(36)}`,
+    id: alert.id || stateId("alert", String(alert.asset)),
     asset: String(alert.asset).trim().toUpperCase(),
     minConfidence: Math.min(99, Math.max(1, Number(alert.minConfidence) || 75)),
     action,
@@ -258,7 +264,7 @@ function sanitizeHolding(item: unknown): PortfolioHolding | undefined {
   }
 
   return {
-    id: holding.id || `holding-${String(holding.asset).toLowerCase()}-${Date.now().toString(36)}`,
+    id: holding.id || stateId("holding", String(holding.asset)),
     asset: String(holding.asset).trim().toUpperCase(),
     quantity,
     averageCostUsd,

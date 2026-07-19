@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const walletAddress = body.intent?.walletAddress ?? body.signerAddress;
     const session = await readWalletSession();
     if (!session) {
-      return NextResponse.json({ error: "Wallet session required. Sign the beta challenge first." }, { status: 401 });
+      return NextResponse.json({ error: "Wallet session required. Sign the wallet challenge first." }, { status: 401 });
     }
     if (!walletAddress || session.walletAddress !== normalizeWalletAddress(walletAddress)) {
       return NextResponse.json({ error: "Wallet session does not match signed SoDEX submission." }, { status: 403 });

@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as OrderIntentInput;
     const session = await readWalletSession();
     if (!session) {
-      return NextResponse.json({ error: "Wallet session required. Sign the beta challenge first." }, { status: 401 });
+      return NextResponse.json({ error: "Wallet session required. Sign the wallet challenge first." }, { status: 401 });
     }
     if (!body.walletAddress || session.walletAddress !== normalizeWalletAddress(body.walletAddress)) {
       return NextResponse.json({ error: "Wallet session does not match requested SoDEX intent." }, { status: 403 });

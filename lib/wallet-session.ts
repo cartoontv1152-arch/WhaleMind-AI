@@ -24,7 +24,7 @@ function getWalletSessionSecret() {
   }
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error("WHALEMIND_SESSION_SECRET must be set to enable wallet-owned beta state in production.");
+    throw new Error("WHALEMIND_SESSION_SECRET must be set to enable wallet-owned saved state in production.");
   }
 
   developmentSecret ??= randomBytes(32).toString("hex");

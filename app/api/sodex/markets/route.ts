@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getSodexMarket, getValueChainStatus } from "@/lib/sodex";
+import { getLiveSodexMarket, getValueChainStatus } from "@/lib/sodex";
 
 export const runtime = "nodejs";
 export const revalidate = 15;
 
-const symbolSchema = z.string().trim().regex(/^[A-Za-z0-9_:-]{3,40}$/).optional();
+const symbolSchema = z.string().trim().regex(/^[A-Za-z0-9_]{3,40}$/).optional();
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -16,7 +16,21 @@ export async function GET(request: Request) {
   }
 
   const symbol = parsedSymbol.data;
-  const [market, chain] = await Promise.all([getSodexMarket(symbol), getValueChainStatus()]);
+  const [marketResult, chain] = await Promise.allSettled([getLiveSodexMarket(symbol), getValueChainStatus()]);
+  const market = marketResult.status === "fulfilled" ? marketResult.value : undefined;
+  const chainStatus = chain.status === "fulfilled" ? chain.value : undefined;
+  const sourceNotes = [
+    ...(market ? [] : ["SoDEX market data unavailable"]),
+    ...(chainStatus?.isLive ? [] : ["ValueChain RPC did not confirm live status"]),
+  ];
 
-  return NextResponse.json({ market, chain });
+  return NextResponse.json(
+    {
+      state: market && chainStatus?.isLive ? "live" : "partial",
+      sourceNotes,
+      market,
+      chain: chainStatus,
+    },
+    { status: market ? 200 : 503 }
+  );
 }

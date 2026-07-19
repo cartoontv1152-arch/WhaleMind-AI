@@ -33,7 +33,7 @@ async function requireWalletSession(walletAddress: string) {
 
   if (!session) {
     return {
-      response: NextResponse.json({ error: "Wallet session required. Sign the beta challenge first." }, { status: 401 }),
+      response: NextResponse.json({ error: "Wallet session required. Sign the wallet challenge first." }, { status: 401 }),
     };
   }
 
@@ -86,7 +86,7 @@ export async function PUT(request: Request) {
   } catch {
     return NextResponse.json(
       {
-        error: "Unable to save beta state.",
+        error: "Unable to save workspace state.",
       },
       { status: 400 }
     );
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json(
       {
-        error: "Unable to update beta state.",
+        error: "Unable to update workspace state.",
       },
       { status: 400 }
     );
