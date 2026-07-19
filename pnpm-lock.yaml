@@ -6,7 +6,7 @@ settings:
 
 overrides:
   postcss: 8.5.15
-  ws: 8.20.1
+  ws: 8.21.0
 
 importers:
 
@@ -123,9 +123,6 @@ importers:
       ethers:
         specifier: ^6.16.0
         version: 6.16.0
-      geist:
-        specifier: 1.7.0
-        version: 1.7.0(next@16.2.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
       input-otp:
         specifier: 1.4.1
         version: 1.4.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -143,7 +140,7 @@ importers:
         version: 0.4.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       openai:
         specifier: ^6.37.0
-        version: 6.37.0(ws@8.20.1)(zod@3.25.76)
+        version: 6.37.0(ws@8.21.0)(zod@3.25.76)
       react:
         specifier: ^19
         version: 19.2.6
@@ -1454,11 +1451,6 @@ packages:
   fraction.js@5.3.4:
     resolution: {integrity: sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==}
 
-  geist@1.7.0:
-    resolution: {integrity: sha512-ZaoiZwkSf0DwwB1ncdLKp+ggAldqxl5L1+SXaNIBGkPAqcu+xjVJLxlf3/S8vLt9UHx1xu5fz3lbzKCj5iOVdQ==}
-    peerDependencies:
-      next: '>=13.2.0'
-
   get-nonce@1.0.1:
     resolution: {integrity: sha512-FJhYRoDaiatfEkUK8HKlicmu/3SGFD51q3itKDGoSTysQJBnfOcxU5GxnhE1E6soB76MbT0MBtnKJuXyAx+96Q==}
     engines: {node: '>=6'}
@@ -1653,7 +1645,7 @@ packages:
     resolution: {integrity: sha512-0H5dEGFmmLv6KSd0W1w2nyL8WsLkX6yoLeQpU+dZAOuGcany5qkYQMmj35ZrKgb6yiyYqpUzFOpR8mZQkgqeEQ==}
     hasBin: true
     peerDependencies:
-      ws: 8.20.1
+      ws: 8.21.0
       zod: ^3.25 || ^4.0
     peerDependenciesMeta:
       ws:
@@ -1912,8 +1904,8 @@ packages:
     resolution: {integrity: sha512-De72GdQZzNTUBBChsXueQUnPKDkg/5A5zp7pFDuQAj5UFoENpiACU0wlCvzpAGnTkj++ihpKwKyYewn/XNUbKw==}
     engines: {node: '>=18'}
 
-  ws@8.20.1:
-    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
+  ws@8.21.0:
+    resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -3117,7 +3109,7 @@ snapshots:
       '@types/node': 22.7.5
       aes-js: 4.0.0-beta.5
       tslib: 2.7.0
-      ws: 8.20.1
+      ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -3127,10 +3119,6 @@ snapshots:
   fast-equals@5.4.0: {}
 
   fraction.js@5.3.4: {}
-
-  geist@1.7.0(next@16.2.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6)):
-    dependencies:
-      next: 16.2.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
 
   get-nonce@1.0.1: {}
 
@@ -3267,9 +3255,9 @@ snapshots:
 
   object-assign@4.1.1: {}
 
-  openai@6.37.0(ws@8.20.1)(zod@3.25.76):
+  openai@6.37.0(ws@8.21.0)(zod@3.25.76):
     optionalDependencies:
-      ws: 8.20.1
+      ws: 8.21.0
       zod: 3.25.76
 
   picocolors@1.1.1: {}
@@ -3531,7 +3519,7 @@ snapshots:
       tr46: 5.1.1
       webidl-conversions: 7.0.0
 
-  ws@8.20.1: {}
+  ws@8.21.0: {}
 
   zod@3.25.76: {}
 
